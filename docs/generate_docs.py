@@ -45,7 +45,12 @@ exclusions = None
 with open(f"{dynamo_docs_abspath}/exclusions.txt", "r") as f:
     exclusions = f.read()
     f.close()
-exclude_patterns = exclusions.strip().split("\n")
+# Filter out empty lines and comments
+exclude_patterns = [
+    line.strip()
+    for line in exclusions.strip().split("\n")
+    if line.strip() and not line.strip().startswith("#")
+]
 
 
 def setup_logger():
@@ -186,8 +191,17 @@ def replace_relpath_with_url(relpath, src_doc_path):
     section = relpath[len(target_path) :]
     valid_hashtag = section not in ["", "#"]
     if relpath.startswith("#"):
-        target_path = os.path.basename(src_doc_path)
-    target_path = os.path.join(os.path.dirname(src_doc_path), target_path)
+        # Anchor to current file - use the current file path
+        target_path = src_doc_path
+    elif target_path.startswith("/docs/"):
+        # Handle absolute paths starting with /docs/ (relative to docs root)
+        # Strip /docs/ prefix since dynamo_docs_abspath already points to docs directory
+        target_path = os.path.join(dynamo_docs_abspath, target_path[len("/docs/"):])
+    elif target_path.startswith("/"):
+        # Handle other absolute paths (relative to repo root)
+        target_path = os.path.join(dynamo_abspath, target_path.lstrip("/"))
+    else:
+        target_path = os.path.join(os.path.dirname(src_doc_path), target_path)
     target_path = os.path.normpath(target_path)
 
     # Assert target path is under the current repo directory.
@@ -211,6 +225,10 @@ def replace_relpath_with_url(relpath, src_doc_path):
         == dynamo_docs_abspath
         and not is_excluded(target_path)
     ):
+        # Convert absolute paths to relative paths
+        if relpath.rsplit("#")[0].startswith("/"):
+            relpath_part = os.path.relpath(target_path, start=os.path.dirname(src_doc_path))
+            relpath = relpath_part + section
         return relpath
     else:
         return repo_url + target_path_from_src_repo + section
