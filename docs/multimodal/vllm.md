@@ -81,7 +81,7 @@ git checkout $(git describe --tags $(git rev-list --tags --max-count=1))
 
 **Components:**
 
-- workers: [EncodeWorkerHandler](../../components/src/dynamo/vllm/multimodal_handlers/encode_worker_handler.py) for encoding and [MultimodalPDWorkerHandler](../../components/src/dynamo/vllm/multimodal_handlers/worker_handler.py) for prefilling and decoding.
+- workers: [EncodeWorkerHandler](https://github.com/ai-dynamo/dynamo/blob/main/components/src/dynamo/vllm/multimodal_handlers/encode_worker_handler.py) for encoding and [MultimodalPDWorkerHandler](https://github.com/ai-dynamo/dynamo/blob/main/components/src/dynamo/vllm/multimodal_handlers/worker_handler.py) for prefilling and decoding.
 - processor: Tokenizes the prompt and passes it to the EncodeWorkerHandler.
 - frontend: HTTP endpoint to handle incoming requests.
 
@@ -145,7 +145,7 @@ curl http://localhost:8000/v1/chat/completions \
 
 **Components:**
 
-- workers: [EncodeWorkerHandler](../../components/src/dynamo/vllm/multimodal_handlers/encode_worker_handler.py) for encoding, [MultimodalDecodeWorkerHandler](../../components/src/dynamo/vllm/multimodal_handlers/worker_handler.py) for decoding, and [MultimodalPDWorkerHandler](../../components/src/dynamo/vllm/multimodal_handlers/worker_handler.py) for prefilling.
+- workers: [EncodeWorkerHandler](https://github.com/ai-dynamo/dynamo/blob/main/components/src/dynamo/vllm/multimodal_handlers/encode_worker_handler.py) for encoding, [MultimodalDecodeWorkerHandler](https://github.com/ai-dynamo/dynamo/blob/main/components/src/dynamo/vllm/multimodal_handlers/worker_handler.py) for decoding, and [MultimodalPDWorkerHandler](https://github.com/ai-dynamo/dynamo/blob/main/components/src/dynamo/vllm/multimodal_handlers/worker_handler.py) for prefilling.
 - processor: Tokenizes the prompt and passes it to the EncodeWorkerHandler.
 - frontend: HTTP endpoint to handle incoming requests.
 
@@ -288,7 +288,7 @@ bash launch/disagg_multimodal_llama.sh
 
 **Components:**
 
-- workers: [VideoEncodeWorker](../../examples/multimodal/components/video_encode_worker.py) for decoding video into frames, and [VllmPDWorker](../../examples/multimodal/components/worker.py) for prefilling and decoding.
+- workers: [VideoEncodeWorker](https://github.com/ai-dynamo/dynamo/blob/main/examples/multimodal/components/video_encode_worker.py) for decoding video into frames, and [VllmPDWorker](https://github.com/ai-dynamo/dynamo/blob/main/examples/multimodal/components/worker.py) for prefilling and decoding.
 - processor: Tokenizes the prompt and passes it to the VideoEncodeWorker.
 - frontend: HTTP endpoint to handle incoming requests.
 
@@ -373,7 +373,7 @@ bash launch/video_disagg.sh
 
 **Components:**
 
-- workers: [AudioEncodeWorker](../../examples/multimodal/components/audio_encode_worker.py) for decoding audio into embeddings, and [VllmPDWorker](../../examples/multimodal/components/worker.py) for prefilling and decoding.
+- workers: [AudioEncodeWorker](https://github.com/ai-dynamo/dynamo/blob/main/examples/multimodal/components/audio_encode_worker.py) for decoding audio into embeddings, and [VllmPDWorker](https://github.com/ai-dynamo/dynamo/blob/main/examples/multimodal/components/worker.py) for prefilling and decoding.
 - processor: Tokenizes the prompt and passes it to the AudioEncodeWorker.
 - frontend: HTTP endpoint to handle incoming requests.
 

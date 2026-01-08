@@ -1,7 +1,7 @@
 # SLA-based Planner
 
 > [!TIP]
-> **New to SLA Planner?** For a complete workflow including profiling and deployment, see the [SLA Profiling + Planner Quick Start Guide](/docs/planner/sla_planner_quickstart.md).
+> **New to SLA Planner?** For a complete workflow including profiling and deployment, see the [SLA Profiling + Planner Quick Start Guide](sla_planner_quickstart.md).
 
 This document covers information regarding the SLA-based planner in `examples/common/utils/planner_core.py`.
 
@@ -21,7 +21,7 @@ The SLA (Service Level Agreement)-based planner is an intelligent autoscaling sy
 - **Planner**: Queries Prometheus and adjusts worker scaling every adjustment interval
 - **Workers**: prefill and backend workers handle inference
 
-The adjustment interval can be defined in the planner manifest as an argument. The default interval value can be found in this [file](/components/src/dynamo/planner/defaults.py).
+The adjustment interval can be defined in the planner manifest as an argument. The default interval value can be found in this [file](https://github.com/ai-dynamo/dynamo/blob/main/components/src/dynamo/planner/defaults.py).
 
 ```mermaid
 flowchart LR
@@ -129,7 +129,7 @@ Finally, SLA planner applies the change by scaling up/down the number of prefill
 
 ## Deploying
 
-For complete deployment instructions, see the [SLA Planner Quick Start Guide](/docs/planner/sla_planner_quickstart.md).
+For complete deployment instructions, see the [SLA Planner Quick Start Guide](sla_planner_quickstart.md).
 
 > [!NOTE]
 > The SLA planner requires a frontend that reports metrics at the `/metrics` HTTP endpoint with the number of requests, ISL, OSL, TTFT, and ITL in the correct format. The dynamo frontend provides these metrics automatically.

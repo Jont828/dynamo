@@ -26,38 +26,38 @@ This directory contains practical examples demonstrating how to deploy and use D
 
 Learn fundamental Dynamo concepts through these introductory examples:
 
-- **[Quickstart](/examples/basics/quickstart/README.md)** - Simple aggregated serving example with vLLM backend
-- **[Disaggregated Serving](/examples/basics/disaggregated_serving/README.md)** - Prefill/decode separation for enhanced performance and scalability
-- **[Multi-node](/examples/basics/multinode/README.md)** - Distributed inference across multiple nodes and GPUs
+- **[Quickstart](https://github.com/ai-dynamo/dynamo/blob/main/examples/basics/quickstart/README.md)** - Simple aggregated serving example with vLLM backend
+- **[Disaggregated Serving](https://github.com/ai-dynamo/dynamo/blob/main/examples/basics/disaggregated_serving/README.md)** - Prefill/decode separation for enhanced performance and scalability
+- **[Multi-node](https://github.com/ai-dynamo/dynamo/blob/main/examples/basics/multinode/README.md)** - Distributed inference across multiple nodes and GPUs
 
 ## Framework Support
 
 These examples show how Dynamo broadly works using major inference engines.
 
-If you want to see advanced, framework-specific deployment patterns and best practices, check out the [Examples Backends](../examples/backends/) directory:
-- **[vLLM](backends/vllm/)** – vLLM-specific deployment and configuration
-- **[SGLang](backends/sglang/)** – SGLang integration examples and workflows
-- **[TensorRT-LLM](backends/trtllm/)** – TensorRT-LLM workflows and optimizations
+If you want to see advanced, framework-specific deployment patterns and best practices, check out the [Examples Backends](https://github.com/ai-dynamo/dynamo/blob/main/docs/examples/backends) directory:
+- **[vLLM](https://github.com/ai-dynamo/dynamo/blob/main/docs/examples/backends/vllm)** – vLLM-specific deployment and configuration
+- **[SGLang](https://github.com/ai-dynamo/dynamo/blob/main/docs/examples/backends/sglang)** – SGLang integration examples and workflows
+- **[TensorRT-LLM](https://github.com/ai-dynamo/dynamo/blob/main/docs/examples/backends/trtllm)** – TensorRT-LLM workflows and optimizations
 
 ## Deployment Examples
 
 Platform-specific deployment guides for production environments:
 
-- **[Amazon EKS](deployments/EKS/)** - Deploy Dynamo on Amazon Elastic Kubernetes Service
-- **[Azure AKS](deployments/AKS/)** - Deploy Dynamo on Azure Kubernetes Service
-- **[Amazon ECS](deployments/ECS/)** - Deploy Dynamo on Amazon Elastic Container Service
-- **[Router Standalone](deployments/router_standalone/)** - Standalone router deployment patterns
+- **[Amazon EKS](https://github.com/ai-dynamo/dynamo/blob/main/docs/examples/deployments/EKS)** - Deploy Dynamo on Amazon Elastic Kubernetes Service
+- **[Azure AKS](https://github.com/ai-dynamo/dynamo/blob/main/docs/examples/deployments/AKS)** - Deploy Dynamo on Azure Kubernetes Service
+- **[Amazon ECS](https://github.com/ai-dynamo/dynamo/blob/main/docs/examples/deployments/ECS)** - Deploy Dynamo on Amazon Elastic Container Service
+- **[Router Standalone](https://github.com/ai-dynamo/dynamo/blob/main/docs/examples/deployments/router_standalone)** - Standalone router deployment patterns
 - **Google GKE** - _Coming soon_
 
 ## Runtime Examples
 
 Low-level runtime examples for developers using Python<>Rust bindings:
 
-- **[Hello World](/examples/custom_backend/hello_world/README.md)** - Minimal Dynamo runtime service demonstrating basic concepts
+- **[Hello World](https://github.com/ai-dynamo/dynamo/blob/main/examples/custom_backend/hello_world/README.md)** - Minimal Dynamo runtime service demonstrating basic concepts
 
 ## Getting Started
 
-1. **Choose your deployment pattern**: Start with the [Quickstart](/examples/basics/quickstart/README.md) for a simple local deployment, or explore [Disaggregated Serving](/examples/basics/disaggregated_serving/README.md) for advanced architectures.
+1. **Choose your deployment pattern**: Start with the [Quickstart](https://github.com/ai-dynamo/dynamo/blob/main/examples/basics/quickstart/README.md) for a simple local deployment, or explore [Disaggregated Serving](https://github.com/ai-dynamo/dynamo/blob/main/examples/basics/disaggregated_serving/README.md) for advanced architectures.
 
 2. **Set up prerequisites**: Most examples require etcd and NATS services. You can start them using:
    ```bash
@@ -83,4 +83,4 @@ If you're running Kubernetes/cloud deployment examples (EKS, AKS, GKE), you'll a
 | **kubectl** | v1.24+ | [Install kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) |
 | **Helm** | v3.0+ | [Install Helm](https://helm.sh/docs/intro/install/) |
 
-See the [Kubernetes Installation Guide](/docs/kubernetes/installation_guide.md#prerequisites) for detailed setup instructions and pre-deployment checks.
+See the [Kubernetes Installation Guide](../kubernetes/installation_guide.md#prerequisites) for detailed setup instructions and pre-deployment checks.

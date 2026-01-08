@@ -120,7 +120,7 @@ await prefill_endpoint.serve_endpoint(prefill_handler.generate)
 ```
 
 > [!Note]
-> The unified frontend with automatic prefill routing is currently enabled for vLLM and TensorRT-LLM backends. For SGLang (work in progress), you need to launch a separate standalone router as the prefill router targeting the prefill endpoints. See example script: [`examples/backends/sglang/launch/disagg_router.sh`](../../examples/backends/sglang/launch/disagg_router.sh).
+> The unified frontend with automatic prefill routing is currently enabled for vLLM and TensorRT-LLM backends. For SGLang (work in progress), you need to launch a separate standalone router as the prefill router targeting the prefill endpoints. See example script: [`examples/backends/sglang/launch/disagg_router.sh`](https://github.com/ai-dynamo/dynamo/blob/main/examples/backends/sglang/launch/disagg_router.sh).
 
 ### Request Flow
 
@@ -379,7 +379,7 @@ python -m dynamo.frontend --router-mode kv --port 8002 --router-replica-sync
 
 >[!Note]
 > If you need to start with a fresh state in JetStream mode, you have two options:
-> 1. **Recommended**: Use a different namespace/component (see [Distributed Runtime](/docs/design_docs/distributed_runtime.md)) which will start a new stream and NATS object store path
+> 1. **Recommended**: Use a different namespace/component (see [Distributed Runtime](../design_docs/distributed_runtime.md)) which will start a new stream and NATS object store path
 > 2. **Use with caution**: Launch a router with the `--router-reset-states` flag, which will purge the entire stream and radix snapshot. This should only be done when launching the first router replica in a component, as it can bring existing router replicas into an inconsistent state.
 
 ## Understanding KV Cache

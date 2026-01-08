@@ -93,7 +93,7 @@ print(f"{response}")
 tool_call = response.choices[0].message.tool_calls[0].function
 print(f"Function called: {tool_call.name}")
 print(f"Arguments: {tool_call.arguments}")
-print(f"Result: {tool_functions[tool_call.name](**json.loads(tool_call.arguments))}")
+print(f"Result: {tool_functions[tool_call.name](https://github.com/ai-dynamo/dynamo/blob/main/docs/agents/**json.loads(tool_call.arguments))}")
 ```
 
 - Example 2

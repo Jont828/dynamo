@@ -57,7 +57,7 @@ Below we provide a guide that lets you run all of our the common deployment patt
 
 ### Start NATS and ETCD in the background
 
-Start using [Docker Compose](../../../deploy/docker-compose.yml)
+Start using [Docker Compose](https://github.com/ai-dynamo/dynamo/blob/main/deploy/docker-compose.yml)
 
 ```bash
 docker compose -f deploy/docker-compose.yml up -d
@@ -142,7 +142,7 @@ This setup demonstrates how to use Dynamo to create an instance using Eagle-base
 
 ### Kubernetes Deployment
 
-For complete Kubernetes deployment instructions, configurations, and troubleshooting, see [vLLM Kubernetes Deployment Guide](../../../examples/backends/vllm/deploy/README.md)
+For complete Kubernetes deployment instructions, configurations, and troubleshooting, see [vLLM Kubernetes Deployment Guide](https://github.com/ai-dynamo/dynamo/blob/main/examples/backends/vllm/deploy/README.md)
 
 ## Configuration
 

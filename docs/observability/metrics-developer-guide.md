@@ -22,7 +22,7 @@ Prometheus Exposition Format text metrics will be available at: `http://localhos
 
 ## Metric Name Constants
 
-The [prometheus_names.rs](../../lib/runtime/src/metrics/prometheus_names.rs) module provides centralized metric name constants and sanitization functions to ensure consistency across all Dynamo components.
+The [prometheus_names.rs](https://github.com/ai-dynamo/dynamo/blob/main/lib/runtime/src/metrics/prometheus_names.rs) module provides centralized metric name constants and sanitization functions to ensure consistency across all Dynamo components.
 
 ---
 
@@ -250,7 +250,7 @@ endpoint.metrics.register_callback(update_metrics)
 
 ### Examples
 
-Example scripts: [lib/bindings/python/examples/metrics/](../../lib/bindings/python/examples/metrics/)
+Example scripts: [lib/bindings/python/examples/metrics/](https://github.com/ai-dynamo/dynamo/blob/main/lib/bindings/python/examples/metrics)
 
 ```bash
 cd ~/dynamo/lib/bindings/python/examples/metrics
@@ -265,5 +265,5 @@ DYN_SYSTEM_PORT=8081 ./server_with_callback.py
 - [Metrics Overview](metrics.md)
 - [Prometheus and Grafana Setup](prometheus-grafana.md)
 - [Distributed Runtime Architecture](../design_docs/distributed_runtime.md)
-- [Python Metrics Examples](../../lib/bindings/python/examples/metrics/)
+- [Python Metrics Examples](https://github.com/ai-dynamo/dynamo/blob/main/lib/bindings/python/examples/metrics)
 
