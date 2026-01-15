@@ -1,0 +1,38 @@
+---
+title: "dynamo.nixl_connect.RdmaMetadata"
+---
+
+{/*
+  SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+  SPDX-License-Identifier: Apache-2.0
+*/}
+
+A Pydantic type intended to provide JSON serialized NIXL metadata about a [`ReadableOperation`](readable_operation.md) or [`WritableOperation`](writable_operation.md) object.
+NIXL metadata contains detailed information about a worker process and how to access memory regions registered with the corresponding agent.
+This data is required to perform data transfers using the NIXL-based I/O subsystem.
+
+<Callout intent="warning">
+NIXL metadata contains information to connect corresponding backends across agents, as well as identification keys to access specific registered memory regions.
+This data provides direct memory access between workers, and should be considered sensitive and therefore handled accordingly.
+</Callout>
+
+Use the respective class's `.metadata()` method to generate an `RdmaMetadata` object for an operation.
+
+<Callout intent="success">
+Classes using `RdmaMetadata` objects must be paired correctly.
+[`ReadableOperation`](readable_operation.md) with [`ReadOperation`](read_operation.md), and
+[`WritableOperation`](write_operation.md) with [`WriteOperation`](write_operation.md).
+Incorrect pairing will result in an error being raised.
+</Callout>
+
+
+## Related Classes
+
+  - [Connector](connector.md)
+  - [Descriptor](descriptor.md)
+  - [Device](device.md)
+  - [OperationStatus](operation_status.md)
+  - [ReadOperation](read_operation.md)
+  - [ReadableOperation](readable_operation.md)
+  - [WritableOperation](writable_operation.md)
+  - [WriteOperation](write_operation.md)
