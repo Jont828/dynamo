@@ -267,6 +267,11 @@ navigation:
               - page: Prometheus
                 path: ./pages/backends/trtllm/prometheus.mdx
 
+# GitHub repository link in navbar
+navbar-links:
+  - type: github
+    value: https://github.com/ai-dynamo/dynamo
+
 # NVIDIA branding colors
 colors:
   accentPrimary:
