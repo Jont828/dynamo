@@ -8,7 +8,7 @@ title: "SLA-Driven Profiling with DynamoGraphDeploymentRequest"
 */}
 
 <Callout intent="success">
-**New to DGDR and SLA-Driven Profiling?** Start with the [SLA-Driven Profiling and Planner Deployment Quick Start Guide](/docs/planner/sla_planner_quickstart.md) for step-by-step instructions. This document provides deeper technical details about the profiling process.
+**New to DGDR and SLA-Driven Profiling?** Start with the [SLA-Driven Profiling and Planner Deployment Quick Start Guide](/components/planner/sla-planner-quick-start) for step-by-step instructions. This document provides deeper technical details about the profiling process.
 </Callout>
 
 ## Overview
@@ -61,7 +61,7 @@ The Dynamo Operator automatically:
 3. Generates optimal DGD configuration with SLA planner
 4. Deploys the DGD to your cluster
 
-See the [Quick Start Guide](/docs/planner/sla_planner_quickstart.md) for prerequisites and detailed instructions.
+See the [Quick Start Guide](/components/planner/sla-planner-quick-start) for prerequisites and detailed instructions.
 
 ## Hardware Configuration
 
@@ -618,14 +618,14 @@ kubectl create secret docker-registry nvcr-imagepullsecret \
 
 ## Next Steps
 
-- **Deploy with DGDR**: See [Quick Start Guide](/docs/planner/sla_planner_quickstart.md)
-- **Understand SLA Planner**: Read [SLA Planner Deep Dive](/docs/planner/sla_planner.md)
-- **Monitor Deployments**: Set up [Observability](/docs/kubernetes/observability/metrics.md)
-- **Optimize Performance**: See [Performance Tuning](/docs/performance/tuning.md)
+- **Deploy with DGDR**: See [Quick Start Guide](/components/planner/sla-planner-quick-start)
+- **Understand SLA Planner**: Read [SLA Planner Deep Dive](/components/planner/sla-based-planner)
+- **Monitor Deployments**: Set up [Observability](/kubernetes-deployment/observability-k-8-s/metrics)
+- **Optimize Performance**: See [Performance Tuning](/user-guides/tuning-disaggregated-performance)
 
 ## Related Documentation
 
-- [DGDR API Reference](/docs/kubernetes/api_reference.md)
-- [SLA Planner Quick Start](/docs/planner/sla_planner_quickstart.md)
-- [SLA Planner Architecture](/docs/planner/sla_planner.md)
+- [DGDR API Reference](/additional-resources/advanced-kubernetes/api-reference)
+- [SLA Planner Quick Start](/components/planner/sla-planner-quick-start)
+- [SLA Planner Architecture](/components/planner/sla-based-planner)
 - [Profiler Arguments Reference](https://github.com/ai-dynamo/dynamo/tree/main/benchmarks/profiler/utils/profiler_argparse.py)

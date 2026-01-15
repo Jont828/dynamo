@@ -37,14 +37,14 @@ git checkout $(git describe --tags $(git rev-list --tags --max-count=1))
 
 | Feature | vLLM | Notes |
 |---------|------|-------|
-| [**Disaggregated Serving**](../../design_docs/disagg_serving.md) | ✅ |  |
-| [**Conditional Disaggregation**](../../design_docs/disagg_serving.md#conditional-disaggregation) | 🚧 | WIP |
-| [**KV-Aware Routing**](../../router/kv_cache_routing.md) | ✅ |  |
-| [**SLA-Based Planner**](../../planner/sla_planner.md) | ✅ |  |
-| [**Load Based Planner**](../../planner/load_planner.md) | 🚧 | WIP |
-| [**KVBM**](../../kvbm/kvbm_architecture.md) | ✅ |  |
-| [**LMCache**](./LMCache_Integration.md) | ✅ |  |
-| [**Prompt Embeddings**](./prompt-embeddings.md) | ✅ | Requires `--enable-prompt-embeds` flag |
+| [**Disaggregated Serving**](../../design_docs/disagg_serving) | ✅ |  |
+| [**Conditional Disaggregation**](../../design_docs/disagg_serving#conditional-disaggregation) | 🚧 | WIP |
+| [**KV-Aware Routing**](../../router/kv_cache_routing) | ✅ |  |
+| [**SLA-Based Planner**](../../planner/sla_planner) | ✅ |  |
+| [**Load Based Planner**](../../planner/load_planner) | 🚧 | WIP |
+| [**KVBM**](../../kvbm/kvbm_architecture) | ✅ |  |
+| [**LMCache**](./LMCache_Integration) | ✅ |  |
+| [**Prompt Embeddings**](./prompt-embeddings) | ✅ | Requires `--enable-prompt-embeds` flag |
 
 ### Large Scale P/D and WideEP Features
 
@@ -143,7 +143,7 @@ Below we provide a selected list of advanced deployments. Please open up an issu
 Run **Meta-Llama-3.1-8B-Instruct** with **Eagle3** as a draft model using **aggregated speculative decoding** on a single node.
 This setup demonstrates how to use Dynamo to create an instance using Eagle-based speculative decoding under the **VLLM aggregated serving framework** for faster inference while maintaining accuracy.
 
-**Guide:** [Speculative Decoding Quickstart](./speculative_decoding.md)
+**Guide:** [Speculative Decoding Quickstart](./speculative_decoding)
 
 ### Kubernetes Deployment
 
@@ -176,17 +176,17 @@ When using KV-aware routing, ensure deterministic hashing across processes to av
 ```bash
 vllm serve ... --enable-prefix-caching --prefix-caching-algo sha256
 ```
-See the high-level notes in [KV Cache Routing](../../router/kv_cache_routing.md) on deterministic event IDs.
+See the high-level notes in [KV Cache Routing](../../router/kv_cache_routing) on deterministic event IDs.
 
 ## Request Migration
 
-You can enable [request migration](../../fault_tolerance/request_migration.md) to handle worker failures gracefully. Use the `--migration-limit` flag to specify how many times a request can be migrated to another worker:
+You can enable [request migration](../../fault_tolerance/request_migration) to handle worker failures gracefully. Use the `--migration-limit` flag to specify how many times a request can be migrated to another worker:
 
 ```bash
 python3 -m dynamo.vllm ... --migration-limit=3
 ```
 
-This allows a request to be migrated up to 3 times before failing. See the [Request Migration Architecture](../../fault_tolerance/request_migration.md) documentation for details on how this works.
+This allows a request to be migrated up to 3 times before failing. See the [Request Migration Architecture](../../fault_tolerance/request_migration) documentation for details on how this works.
 
 ## Request Cancellation
 
@@ -199,4 +199,4 @@ When a user cancels a request (e.g., by disconnecting from the frontend), the re
 | **Aggregated** | ✅ | ✅ |
 | **Disaggregated** | ✅ | ✅ |
 
-For more details, see the [Request Cancellation Architecture](../../fault_tolerance/request_cancellation.md) documentation.
+For more details, see the [Request Cancellation Architecture](../../fault_tolerance/request_cancellation) documentation.

@@ -15,7 +15,7 @@ High-level guide to Dynamo Kubernetes deployments. Start here, then dive into sp
 - Used for: Resource isolation, RBAC, organizing deployments
 - Example: `dynamo-system`, `team-a-namespace`
 
-**Dynamo Namespace**: The logical namespace used by Dynamo components for [service discovery](/docs/kubernetes/service_discovery.md).
+**Dynamo Namespace**: The logical namespace used by Dynamo components for [service discovery](/additional-resources/advanced-kubernetes/service-discovery).
 - Used for: Runtime component communication, service discovery
 - Specified in: `.spec.services.<ServiceName>.dynamoNamespace` field
 - Example: `my-llm`, `production-model`, `dynamo-dev`
@@ -37,7 +37,7 @@ kubectl version --client  # Should show v1.24+
 helm version              # Should show v3.0+
 ```
 
-For detailed installation instructions, see the [Prerequisites section](/docs/kubernetes/installation_guide.md#prerequisites) in the Installation Guide.
+For detailed installation instructions, see the [Prerequisites section](/kubernetes-deployment/deployment-guide/detailed-installation-guide#prerequisites) in the Installation Guide.
 
 ## Pre-deployment Checks
 
@@ -72,7 +72,7 @@ If your cluster has namespace-restricted Dynamo operators, add this flag to step
 --set dynamo-operator.namespaceRestriction.enabled=true
 ```
 
-For more details or customization options (including multinode deployments), see **[Installation Guide for Dynamo Kubernetes Platform](/docs/kubernetes/installation_guide.md)**.
+For more details or customization options (including multinode deployments), see **[Installation Guide for Dynamo Kubernetes Platform](/kubernetes-deployment/deployment-guide/detailed-installation-guide)**.
 
 ## 2. Choose Your Backend
 
@@ -107,7 +107,7 @@ kubectl port-forward svc/vllm-agg-frontend 8000:8000 -n ${NAMESPACE}
 curl http://localhost:8000/v1/models
 ```
 
-For SLA-based autoscaling, see [SLA Planner Quick Start Guide](/docs/planner/sla_planner_quickstart.md).
+For SLA-based autoscaling, see [SLA Planner Quick Start Guide](/components/planner/sla-planner-quick-start).
 
 ## Understanding Dynamo's Custom Resources
 
@@ -137,15 +137,15 @@ A lower-level interface that defines your complete inference pipeline:
 
 Use this when you need fine-grained control or have already completed profiling.
 
-Refer to the [API Reference and Documentation](/docs/kubernetes/api_reference.md) for more details.
+Refer to the [API Reference and Documentation](/additional-resources/advanced-kubernetes/api-reference) for more details.
 
 ## 📖 API Reference & Documentation
 
 For detailed technical specifications of Dynamo's Kubernetes resources:
 
-- **[API Reference](/docs/kubernetes/api_reference.md)** - Complete CRD field specifications for all Dynamo resources
-- **[Create Deployment](/docs/kubernetes/deployment/create_deployment.md)** - Step-by-step deployment creation with DynamoGraphDeployment
-- **[Operator Guide](/docs/kubernetes/dynamo_operator.md)** - Dynamo operator configuration and management
+- **[API Reference](/additional-resources/advanced-kubernetes/api-reference)** - Complete CRD field specifications for all Dynamo resources
+- **[Create Deployment](/additional-resources/advanced-kubernetes/create-deployment)** - Step-by-step deployment creation with DynamoGraphDeployment
+- **[Operator Guide](/kubernetes-deployment/deployment-guide/dynamo-operator)** - Dynamo operator configuration and management
 
 ### Choosing Your Architecture Pattern
 
@@ -160,7 +160,7 @@ When creating a deployment, select the architecture pattern that best fits your 
 You can run the Frontend on one machine (e.g., a CPU node) and workers on different machines (GPU nodes). The Frontend serves as a framework-agnostic HTTP entry point that:
 
 - Provides OpenAI-compatible `/v1/chat/completions` endpoint
-- Auto-discovers backend workers via [service discovery](/docs/kubernetes/service_discovery.md) (Kubernetes-native by default)
+- Auto-discovers backend workers via [service discovery](/additional-resources/advanced-kubernetes/service-discovery) (Kubernetes-native by default)
 - Routes requests and handles load balancing
 - Validates and preprocesses requests
 
@@ -228,15 +228,15 @@ Key customization points include:
 
 ## Additional Resources
 
-- **[Examples](../examples.md)** - Complete working examples
-- **[Create Custom Deployments](/docs/kubernetes/deployment/create_deployment.md)** - Build your own CRDs
-- **[Managing Models with DynamoModel](/docs/kubernetes/deployment/dynamomodel-guide.md)** - Deploy LoRA adapters and manage models
-- **[Operator Documentation](/docs/kubernetes/dynamo_operator.md)** - How the platform works
-- **[Service Discovery](/docs/kubernetes/service_discovery.md)** - Discovery backends and configuration
+- **[Examples](../examples)** - Complete working examples
+- **[Create Custom Deployments](/additional-resources/advanced-kubernetes/create-deployment)** - Build your own CRDs
+- **[Managing Models with DynamoModel](/kubernetes-deployment/deployment-guide/managing-models-with-dynamo-model)** - Deploy LoRA adapters and manage models
+- **[Operator Documentation](/kubernetes-deployment/deployment-guide/dynamo-operator)** - How the platform works
+- **[Service Discovery](/additional-resources/advanced-kubernetes/service-discovery)** - Discovery backends and configuration
 - **[Helm Charts](https://github.com/ai-dynamo/dynamo/tree/main/deploy/helm/README.md)** - For advanced users
-- **[GitOps Deployment with FluxCD](/docs/kubernetes/fluxcd.md)** - For advanced users
-- **[Logging](/docs/kubernetes/observability/logging.md)** - For logging setup
-- **[Multinode Deployment](/docs/kubernetes/deployment/multinode-deployment.md)** - For multinode deployment
-- **[Grove](/docs/kubernetes/grove.md)** - For grove details and custom installation
-- **[Monitoring](/docs/kubernetes/observability/metrics.md)** - For monitoring setup
-- **[Model Caching with Fluid](/docs/kubernetes/model_caching_with_fluid.md)** - For model caching with Fluid
+- **[GitOps Deployment with FluxCD](/additional-resources/advanced-kubernetes/flux-cd)** - For advanced users
+- **[Logging](/kubernetes-deployment/observability-k-8-s/logging)** - For logging setup
+- **[Multinode Deployment](/kubernetes-deployment/multinode/multinode-deployments)** - For multinode deployment
+- **[Grove](/kubernetes-deployment/multinode/grove)** - For grove details and custom installation
+- **[Monitoring](/kubernetes-deployment/observability-k-8-s/metrics)** - For monitoring setup
+- **[Model Caching with Fluid](/additional-resources/advanced-kubernetes/model-caching-with-fluid)** - For model caching with Fluid

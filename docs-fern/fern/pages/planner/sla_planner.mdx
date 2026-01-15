@@ -8,7 +8,7 @@ title: "SLA-based Planner"
 */}
 
 <Callout intent="success">
-**New to SLA Planner?** For a complete workflow including profiling and deployment, see the [SLA Profiling + Planner Quick Start Guide](/docs/planner/sla_planner_quickstart.md).
+**New to SLA Planner?** For a complete workflow including profiling and deployment, see the [SLA Profiling + Planner Quick Start Guide](/components/planner/sla-planner-quick-start).
 </Callout>
 
 This document covers information regarding the SLA-based planner in `examples/common/utils/planner_core.py`.
@@ -61,7 +61,7 @@ The SLA planner consists of several key components:
 
 **Prerequisite**: SLA-based planner requires pre-deployment profiling to be completed before deployment. The profiling process analyzes your model's performance characteristics to determine optimal tensor parallelism configurations and scaling parameters that the planner will use during operation.
 
-See [Pre-Deployment Profiling](../benchmarks/sla_driven_profiling.md) for detailed instructions on running the profiling process.
+See [Pre-Deployment Profiling](../benchmarks/sla_driven_profiling) for detailed instructions on running the profiling process.
 
 ## Load Prediction
 
@@ -140,7 +140,7 @@ SLA-planner scales up/down the P/D engines non-blockingly. If `adjustment-interv
 
 ## Deploying
 
-For complete deployment instructions, see the [SLA Planner Quick Start Guide](/docs/planner/sla_planner_quickstart.md).
+For complete deployment instructions, see the [SLA Planner Quick Start Guide](/components/planner/sla-planner-quick-start).
 
 <Callout intent="info">
 The SLA planner requires a frontend that reports metrics at the `/metrics` HTTP endpoint with the number of requests, ISL, OSL, TTFT, and ITL in the correct format. The dynamo frontend provides these metrics automatically.

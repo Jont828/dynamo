@@ -27,9 +27,9 @@ def id(self) -> int:
 
 Gets the identity, or ordinal, of the device.
 
-When the device is the [`HOST`](device_kind.md#host), this value is always `0`.
+When the device is the [`HOST`](device_kind#host), this value is always `0`.
 
-When the device is a [`GPU`](device_kind.md#cuda), this value identifies a specific GPU.
+When the device is a [`GPU`](device_kind#cuda), this value identifies a specific GPU.
 
 ### `kind`
 
@@ -38,16 +38,16 @@ When the device is a [`GPU`](device_kind.md#cuda), this value identifies a speci
 def kind(self) -> DeviceKind:
 ```
 
-Gets the [`DeviceKind`](device_kind.md) of device the instance references.
+Gets the [`DeviceKind`](device_kind) of device the instance references.
 
 
 ## Related Classes
 
-  - [Connector](connector.md)
-  - [Descriptor](descriptor.md)
-  - [OperationStatus](operation_status.md)
-  - [ReadOperation](read_operation.md)
-  - [ReadableOperation](readable_operation.md)
-  - [RdmaMetadata](rdma_metadata.md)
-  - [WritableOperation](writable_operation.md)
-  - [WriteOperation](write_operation.md)
+  - [Connector](connector)
+  - [Descriptor](descriptor)
+  - [OperationStatus](operation_status)
+  - [ReadOperation](read_operation)
+  - [ReadableOperation](readable_operation)
+  - [RdmaMetadata](rdma_metadata)
+  - [WritableOperation](writable_operation)
+  - [WriteOperation](write_operation)

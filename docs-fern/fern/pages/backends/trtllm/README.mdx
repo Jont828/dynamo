@@ -41,12 +41,12 @@ git checkout $(git describe --tags $(git rev-list --tags --max-count=1))
 
 | Feature | TensorRT-LLM | Notes |
 |---------|--------------|-------|
-| [**Disaggregated Serving**](../../design_docs/disagg_serving.md) | ✅ |  |
-| [**Conditional Disaggregation**](../../design_docs/disagg_serving.md#conditional-disaggregation) | 🚧 | Not supported yet |
-| [**KV-Aware Routing**](../../router/kv_cache_routing.md) | ✅ |  |
-| [**SLA-Based Planner**](../../planner/sla_planner.md) | ✅ |  |
-| [**Load Based Planner**](../../planner/load_planner.md) | 🚧 | Planned |
-| [**KVBM**](../../kvbm/kvbm_architecture.md) | ✅ | |
+| [**Disaggregated Serving**](../../design_docs/disagg_serving) | ✅ |  |
+| [**Conditional Disaggregation**](../../design_docs/disagg_serving#conditional-disaggregation) | 🚧 | Not supported yet |
+| [**KV-Aware Routing**](../../router/kv_cache_routing) | ✅ |  |
+| [**SLA-Based Planner**](../../planner/sla_planner) | ✅ |  |
+| [**Load Based Planner**](../../planner/load_planner) | 🚧 | Planned |
+| [**KVBM**](../../kvbm/kvbm_architecture) | ✅ | |
 
 ### Large Scale P/D and WideEP Features
 
@@ -98,7 +98,7 @@ apt-get update && apt-get -y install git git-lfs
 Below we provide some simple shell scripts that run the components for each configuration. Each shell script is simply running the `python3 -m dynamo.frontend <args>` to start up the ingress and using `python3 -m dynamo.trtllm <args>` to start up the workers. You can easily take each command and run them in separate terminals.
 </Callout>
 
-For detailed information about the architecture and how KV-aware routing works, see the [KV Cache Routing documentation](../../router/kv_cache_routing.md).
+For detailed information about the architecture and how KV-aware routing works, see the [KV Cache Routing documentation](../../router/kv_cache_routing).
 
 ### Aggregated
 ```bash
@@ -151,10 +151,10 @@ Below we provide a selected list of advanced examples. Please open up an issue i
 
 ### Multinode Deployment
 
-For comprehensive instructions on multinode serving, see the [multinode-examples.md](./multinode/multinode-examples.md) guide. It provides step-by-step deployment examples and configuration tips for running Dynamo with TensorRT-LLM across multiple nodes. While the walkthrough uses DeepSeek-R1 as the model, you can easily adapt the process for any supported model by updating the relevant configuration files. You can see [Llama4+eagle](./llama4_plus_eagle.md) guide to learn how to use these scripts when a single worker fits on the single node.
+For comprehensive instructions on multinode serving, see the [multinode-examples.md](./multinode/multinode-examples) guide. It provides step-by-step deployment examples and configuration tips for running Dynamo with TensorRT-LLM across multiple nodes. While the walkthrough uses DeepSeek-R1 as the model, you can easily adapt the process for any supported model by updating the relevant configuration files. You can see [Llama4+eagle](./llama4_plus_eagle) guide to learn how to use these scripts when a single worker fits on the single node.
 
 ### Speculative Decoding
-- **[Llama 4 Maverick Instruct + Eagle Speculative Decoding](./llama4_plus_eagle.md)**
+- **[Llama 4 Maverick Instruct + Eagle Speculative Decoding](./llama4_plus_eagle)**
 
 ### Kubernetes Deployment
 
@@ -162,7 +162,7 @@ For complete Kubernetes deployment instructions, configurations, and troubleshoo
 
 ### Client
 
-See [client](../../backends/sglang/README.md#testing-the-deployment) section to learn how to send request to the deployment.
+See [client](../../backends/sglang/README#testing-the-deployment) section to learn how to send request to the deployment.
 
 NOTE: To send a request to a multi-node deployment, target the node which is running `python3 -m dynamo.frontend <args>`.
 
@@ -173,12 +173,12 @@ To benchmark your deployment with AIPerf, see this utility script, configuring t
 
 ## KV Cache Transfer in Disaggregated Serving
 
-Dynamo with TensorRT-LLM supports two methods for transferring KV cache in disaggregated serving: UCX (default) and NIXL (experimental). For detailed information and configuration instructions for each method, see the [KV cache transfer guide](./kv-cache-transfer.md).
+Dynamo with TensorRT-LLM supports two methods for transferring KV cache in disaggregated serving: UCX (default) and NIXL (experimental). For detailed information and configuration instructions for each method, see the [KV cache transfer guide](./kv-cache-transfer).
 
 
 ## Request Migration
 
-You can enable [request migration](../../fault_tolerance/request_migration.md) to handle worker failures gracefully. Use the `--migration-limit` flag to specify how many times a request can be migrated to another worker:
+You can enable [request migration](../../fault_tolerance/request_migration) to handle worker failures gracefully. Use the `--migration-limit` flag to specify how many times a request can be migrated to another worker:
 
 ```bash
 # For decode and aggregated workers
@@ -189,7 +189,7 @@ python3 -m dynamo.trtllm ... --migration-limit=3
 **Prefill workers do not support request migration** and must use `--migration-limit=0` (the default). Prefill workers only process prompts and return KV cache state - they don't maintain long-running generation requests that would benefit from migration.
 </Callout>
 
-See the [Request Migration Architecture](../../fault_tolerance/request_migration.md) documentation for details on how this works.
+See the [Request Migration Architecture](../../fault_tolerance/request_migration) documentation for details on how this works.
 
 ## Request Cancellation
 
@@ -202,11 +202,11 @@ When a user cancels a request (e.g., by disconnecting from the frontend), the re
 | **Aggregated** | ✅ | ✅ |
 | **Disaggregated** | ✅ | ✅ |
 
-For more details, see the [Request Cancellation Architecture](../../fault_tolerance/request_cancellation.md) documentation.
+For more details, see the [Request Cancellation Architecture](../../fault_tolerance/request_cancellation) documentation.
 
 ## Client
 
-See [client](../../backends/sglang/README.md#testing-the-deployment) section to learn how to send request to the deployment.
+See [client](../../backends/sglang/README#testing-the-deployment) section to learn how to send request to the deployment.
 
 NOTE: To send a request to a multi-node deployment, target the node which is running `python3 -m dynamo.frontend <args>`.
 
@@ -217,7 +217,7 @@ To benchmark your deployment with AIPerf, see this utility script, configuring t
 
 ## Multimodal support
 
-Dynamo with the TensorRT-LLM backend supports multimodal models, enabling you to process both text and images (or pre-computed embeddings) in a single request. For detailed setup instructions, example requests, and best practices, see the [TensorRT-LLM Multimodal Guide](../../multimodal/trtllm.md).
+Dynamo with the TensorRT-LLM backend supports multimodal models, enabling you to process both text and images (or pre-computed embeddings) in a single request. For detailed setup instructions, example requests, and best practices, see the [TensorRT-LLM Multimodal Guide](../../multimodal/trtllm).
 
 ## Logits Processing
 
@@ -284,4 +284,4 @@ For detailed instructions on running comprehensive performance sweeps across bot
 
 Dynamo with TensorRT-LLM currently supports integration with the Dynamo KV Block Manager. This integration can significantly reduce time-to-first-token (TTFT) latency, particularly in usage patterns such as multi-turn conversations and repeated long-context requests.
 
-Here is the instruction: [Running KVBM in TensorRT-LLM](./../../kvbm/trtllm-setup.md) .
+Here is the instruction: [Running KVBM in TensorRT-LLM](./../../kvbm/trtllm-setup) .
