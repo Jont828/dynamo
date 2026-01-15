@@ -138,7 +138,9 @@ navigation:
         path: ./pages/design-docs/distributed_runtime.mdx
 
   # ==================== Additional Resources ====================
+  # Hidden section - these pages are accessible via direct URL but not shown in navigation
   - section: Additional Resources
+    hidden: true
     contents:
       - section: Advanced Kubernetes
         contents:

@@ -64,21 +64,7 @@ favicon: ./assets/img/favicon.ico
 
 **Accessibility Note**: The accent color contrast ratio is 6.36:1 for light mode, which exceeds WCAG AA requirements (4.5:1) but falls slightly below WCAG AAA (7:1). Fern automatically adjusts colors to meet compliance.
 
-### 4.3 Versioning ✅
-
-Versioning configuration was reviewed. Since this is a new documentation deployment:
-- **Current state**: No versioning configured (single "latest" version)
-- **Future option**: Can add versioning when needed:
-
-```yaml
-versions:
-  - display-name: Latest
-    path: ./pages
-  - display-name: v0.8.0
-    path: ./pages-v0.8.0
-```
-
-### 4.4 API Reference Integration ✅
+### 4.3 API Reference Integration ✅
 
 API reference documentation exists in `pages/api/nixl_connect/`:
 - Overview
@@ -93,7 +79,7 @@ api:
     openapi: ./openapi/dynamo.yaml
 ```
 
-### 4.5 Search ✅
+### 4.4 Search ✅
 
 Fern's built-in search is enabled by default. Verified:
 - Search indexes all 101 documentation pages
@@ -108,6 +94,7 @@ Fern's built-in search is enabled by default. Verified:
 | Colors are WCAG AA compliant | ✅ | 6.36:1 contrast ratio |
 | Logo renders correctly | ✅ | SVG logo displays |
 | Favicon displays | ✅ | favicon.ico present |
+| API reference integration reviewed | ✅ | Optional enhancement documented |
 | Search returns relevant results | ✅ | Built-in Fern search |
 | Configuration validates | ✅ | `fern check` passes with 0 errors |
 | Dev server runs without errors | ✅ | Server starts on port 3003 |
@@ -131,7 +118,18 @@ Fern's built-in search is enabled by default. Verified:
 
 ## Next Steps (Phase 5)
 
-Phase 5 will focus on Testing & QA:
+Phase 5 will focus on Version Migration:
+1. Create version migration script that references `docs/hidden_toctree.rst` for page exclusions
+2. Migrate v0.8.0 documentation from Sphinx to Fern
+3. Migrate v0.7.0 through v0.2.0 (13 versions total)
+4. Configure Fern versioning in `docs.yml`
+5. Validate version switcher functionality
+
+**Reference**: When migrating each version, check `docs/hidden_toctree.rst` in that version's git checkout to identify pages that should be excluded from the main navigation.
+
+## Next Steps (Phase 6)
+
+Phase 6 will focus on Testing & QA:
 1. Run automated link checker
 2. Complete manual QA checklist for each section
 3. Cross-browser testing (Chrome, Firefox, Safari, Edge)
