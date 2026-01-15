@@ -270,8 +270,8 @@ navigation:
 # NVIDIA branding colors
 colors:
   accentPrimary:
-    light: '#76B900'
-    dark: '#76B900'
+    light: '#3D6B00'  # Darker NVIDIA green for light mode (WCAG AA compliant)
+    dark: '#76B900'   # Standard NVIDIA green for dark mode
   background:
     light: '#FFFFFF'
     dark: '#1A1A1A'
@@ -279,25 +279,7 @@ colors:
 # Logo and favicon
 logo:
   light: ./assets/img/nvidia-logo.svg
-  dark: ./assets/img/nvidia-logo.svg
+  dark: ./assets/img/nvidia-logo-dark.svg
+  height: 50
 
 favicon: ./assets/img/favicon.ico
-
-# Redirects from old Docusaurus URLs
-redirects:
-  - source: /guides/tool-calling
-    destination: /agents/tool-calling
-  - source: /architecture/architecture
-    destination: /design-docs/architecture
-  - source: /architecture/disagg_serving
-    destination: /design-docs/disagg-serving
-  - source: /architecture/distributed_runtime
-    destination: /design-docs/distributed_runtime
-  - source: /architecture/dynamo_flow
-    destination: /design-docs/dynamo_flow
-  - source: /intro
-    destination: /getting-started/quickstart
-  - source: /installation
-    destination: /getting-started/installation
-  - source: /examples
-    destination: /getting-started/examples
