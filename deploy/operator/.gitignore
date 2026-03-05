@@ -31,5 +31,7 @@ go.work
 *.swo
 *~
 
+# Tilt per-developer settings (defaults are defined in the Tiltfile)
+tilt-settings.yaml
 
 !env*
