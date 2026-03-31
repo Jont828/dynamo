@@ -49,30 +49,51 @@ impl<'a> PythonGenerator<'a> {
         // Generate simple classes with constants as class attributes
         for module_name in module_names {
             let module = &self.modules[module_name];
-            lines.push(format!("class {}:", module_name));
-
-            // Use doc comment from module if available
-            if !module.doc_comment.is_empty() {
-                let first_line = module.doc_comment.lines().next().unwrap_or("").trim();
-                if !first_line.is_empty() {
-                    lines.push(format!("    \"\"\"{}\"\"\"", first_line));
-                }
-            }
-            lines.push("".to_string());
-
-            for constant in &module.constants {
-                if !constant.doc_comment.is_empty() {
-                    for comment_line in constant.doc_comment.lines() {
-                        lines.push(format!("    # {}", comment_line));
-                    }
-                }
-                lines.push(format!("    {} = \"{}\"", constant.name, constant.value));
-            }
+            Self::generate_class(&mut lines, module, 0);
 
             lines.push("".to_string());
         }
 
         lines.join("\n")
+    }
+
+    /// Emit a single Python class (possibly with nested inner classes) at the
+    /// given indentation depth (0 = top-level, 1 = inner class, …).
+    fn generate_class(lines: &mut Vec<String>, module: &ModuleDef, depth: usize) {
+        let indent = "    ".repeat(depth);
+        lines.push(format!("{}class {}:", indent, module.name));
+
+        // Use doc comment from module if available
+        if !module.doc_comment.is_empty() {
+            let first_line = module.doc_comment.lines().next().unwrap_or("").trim();
+            if !first_line.is_empty() {
+                lines.push(format!("{}    \"\"\"{}\"\"\"", indent, first_line));
+            }
+        }
+        lines.push("".to_string());
+
+        for constant in &module.constants {
+            if !constant.doc_comment.is_empty() {
+                for comment_line in constant.doc_comment.lines() {
+                    lines.push(format!("{}    # {}", indent, comment_line));
+                }
+            }
+            lines.push(format!(
+                "{}    {} = \"{}\"",
+                indent, constant.name, constant.value
+            ));
+        }
+
+        // Emit nested sub-modules as inner classes
+        if !module.sub_modules.is_empty() {
+            let mut sorted_subs: Vec<&ModuleDef> = module.sub_modules.iter().collect();
+            sorted_subs.sort_by_key(|m| &m.name);
+
+            for sub in sorted_subs {
+                lines.push("".to_string());
+                Self::generate_class(lines, sub, depth + 1);
+            }
+        }
     }
 }
 
@@ -155,13 +176,18 @@ fn main() -> Result<()> {
     for name in module_names.iter() {
         let module = &parser.modules[name.as_str()];
         println!(
-            "  - {}: {} constants{}",
+            "  - {}: {} constants{}{}",
             name,
             module.constants.len(),
             if module.is_macro_generated {
                 " (macro-generated)"
             } else {
                 ""
+            },
+            if module.sub_modules.is_empty() {
+                String::new()
+            } else {
+                format!(", {} sub-module(s)", module.sub_modules.len())
             }
         );
     }

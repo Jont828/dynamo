@@ -21,6 +21,8 @@ pub struct ModuleDef {
     pub doc_comment: String,
     pub is_macro_generated: bool,
     pub macro_prefix: Option<String>,
+    /// Nested sub-modules (e.g. `transport::tcp`, `transport::nats`).
+    pub sub_modules: Vec<ModuleDef>,
 }
 
 pub struct PrometheusParser {
@@ -61,6 +63,7 @@ impl PrometheusParser {
         let mut constants = Vec::new();
         let mut is_macro_generated = false;
         let mut macro_prefix = None;
+        let mut sub_modules = Vec::new();
 
         for item in items {
             match item {
@@ -76,9 +79,12 @@ impl PrometheusParser {
                         macro_prefix = Some(prefix);
                     }
                 }
-                // TODO: Handle nested `pub mod` (e.g. `transport::tcp`, `transport::nats`)
-                // by recursing into sub-modules and emitting nested Python classes.
-                // Currently these are silently skipped, producing empty Python classes.
+                Item::Mod(nested_mod) => {
+                    // Recurse into nested `pub mod` (e.g. `transport::tcp`, `transport::nats`)
+                    if let Some(sub_module) = Self::parse_module(nested_mod)? {
+                        sub_modules.push(sub_module);
+                    }
+                }
                 _ => {}
             }
         }
@@ -107,6 +113,7 @@ impl PrometheusParser {
             doc_comment,
             is_macro_generated,
             macro_prefix,
+            sub_modules,
         }))
     }
 
