@@ -3,18 +3,20 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # ============================================================================
-# Airline Flight Disruption Demo for NVIDIA Dynamo SLA Planner
+# E-Commerce Black Friday Demo for NVIDIA Dynamo
 # ============================================================================
 #
-# This script demonstrates the Dynamo Planner Profiler and SLO-based Planner
-# using a realistic airline application scenario. It simulates:
+# This script demonstrates the end-to-end Dynamo workflow — from a single DGDR
+# to a fully deployed, auto-scaling inference service. It simulates:
 #
-#   1. Normal Operations: Passengers checking flight status (short queries)
-#   2. Flight Disruption: Mass delays trigger rerouting requests (traffic spike + long queries)
-#   3. Recovery: Traffic gradually returns to normal
+#   1. Normal Shopping: Customers browsing product recommendations (short queries)
+#   2. Black Friday Launch: Flash deals trigger a traffic spike (long comparison queries)
+#   3. Recovery: Sale winds down, traffic normalizes
 #
-# The demo showcases how the SLA Planner automatically scales prefill/decode
-# workers to maintain TTFT and ITL targets during traffic pattern shifts.
+# The demo showcases:
+#   - DGDR as a single entrypoint: model + SLA targets → Dynamo handles the rest
+#   - Automatic profiling to find optimal GPU configuration
+#   - SLA Planner auto-scaling prefill/decode workers during traffic shifts
 #
 # HOW SCALING WORKS:
 # The SLA Planner uses "correction factors" based on observed vs target latency:
@@ -33,20 +35,20 @@
 #   - DeepGemm kernel warmup (1-2 minutes)
 #
 # Prerequisites:
-#   - Kubernetes cluster with Dynamo 0.7.1+ installed
+#   - Kubernetes cluster with Dynamo 1.0.1+ installed
 #   - kube-prometheus-stack installed and running
 #   - NVIDIA GPUs available in the cluster
 #   - aiperf installed (pip install aiperf)
 #
 # Usage:
-#   ./demo_airline_scenario.sh [OPTIONS]
+#   ./demo-ecommerce.sh [OPTIONS]
 #
 # Quick Start:
 #   # Full demo: profiling + deployment + load test
-#   ./demo_airline_scenario.sh --full-demo
+#   ./demo-ecommerce.sh --full-demo
 #
 #   # Just run load test against existing deployment
-#   ./demo_airline_scenario.sh --load-test-only
+#   ./demo-ecommerce.sh --load-test-only
 #
 set -e
 
@@ -57,24 +59,24 @@ NAMESPACE="${NAMESPACE:-dynamo-demo}"
 IMAGE_TAG="${IMAGE_TAG:-1.0.1}"
 MODEL="${MODEL:-Qwen/Qwen3-32B}"
 BACKEND="${BACKEND:-vllm}"
-DEPLOYMENT_NAME="airline-assistant"
+DEPLOYMENT_NAME="ecommerce-assistant"
 
 # Demo timing (in seconds)
-PHASE1_DURATION=120    # Normal operations
-PHASE2_DURATION=180    # Flight disruption (burst + long queries)
-PHASE3_DURATION=120    # Continued high load with mixed queries
-PHASE4_DURATION=120    # Recovery phase
+PHASE1_DURATION=120    # Normal shopping
+PHASE2_DURATION=180    # Black Friday launch (burst + long queries)
+PHASE3_DURATION=120    # Sustained peak shopping
+PHASE4_DURATION=120    # Wind-down
 COOLDOWN_DURATION=90   # Observe scale-down
 
 # Traffic patterns
-# Phase 1: Normal - passengers checking flight status
+# Phase 1: Normal - shoppers browsing product recommendations
 NORMAL_RPS=5
-SHORT_ISL=500          # "What's my flight status?"
+SHORT_ISL=500          # "Show me deals on headphones"
 SHORT_OSL=100
 
-# Phase 2-3: Disruption - passengers need full itinerary rerouting
+# Phase 2-3: Black Friday - shoppers need detailed comparisons
 BURST_RPS=150          # High enough to exceed H100 capacity (~3248 tokens/s)
-LONG_ISL=4000          # "Reroute my entire trip considering my preferences..."
+LONG_ISL=4000          # "Compare these 5 laptops, check compatibility..."
 LONG_OSL=500
 
 # SLA Targets (aligned with blog post)
@@ -112,13 +114,13 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # =============================================================================
-# Demo Output Functions (Themed for Airline Scenario)
+# Demo Output Functions (Themed for E-Commerce Scenario)
 # =============================================================================
 banner() {
     echo ""
     echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${NC}  ${BOLD}✈️  NVIDIA Dynamo - Airline AI Assistant Demo  ✈️${NC}            ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC}     ${MAGENTA}SLA Planner + AI Configurator Profiler${NC}                    ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}  ${BOLD}🛒  NVIDIA Dynamo - E-Commerce AI Assistant Demo  🛒${NC}        ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}     ${MAGENTA}DGDR → Profiling → Deployment → SLA Planner${NC}              ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -188,36 +190,39 @@ show_pod_status() {
 # =============================================================================
 show_help() {
     cat << 'EOF'
-Airline Flight Disruption Demo for NVIDIA Dynamo SLA Planner
+E-Commerce Black Friday Demo for NVIDIA Dynamo
 
-This demo simulates an airline mobile app that uses AI for passenger assistance.
-It showcases how the Dynamo Planner handles:
-  • Sudden traffic bursts (flight delays announced)
-  • Shifting query patterns (short status → long rerouting requests)
+This demo showcases the end-to-end Dynamo workflow using an e-commerce AI
+assistant scenario. You provide a DGDR with your model + SLA targets, and
+Dynamo handles profiling, optimal config selection, and deployment automatically.
+
+The demo simulates:
+  • Normal shopping traffic (product recommendations, quick lookups)
+  • Black Friday launch (traffic spike + detailed comparison queries)
   • SLA-driven auto-scaling of prefill/decode workers
 
 USAGE:
-    ./demo_airline_scenario.sh [OPTIONS]
+    ./demo-ecommerce.sh [OPTIONS]
 
 DEMO MODES:
-    --full-demo          Run complete demo: profiling → deployment → load test
+    --full-demo          Run complete demo: DGDR → profiling → deployment → load test
     --load-test-only     Run load test against existing deployment
     --deploy-only        Deploy without running load test
     --cleanup            Remove all demo resources
 
 OPTIONS:
     --namespace NS       Kubernetes namespace (default: dynamo-demo)
-    --image-tag TAG      Dynamo runtime image tag (default: 0.7.1)
+    --image-tag TAG      Dynamo runtime image tag (default: 1.0.1)
     --backend BACKEND    Backend: vllm, sglang, trtllm (default: vllm)
     --open-grafana       Auto-open Grafana dashboard
     --dry-run            Show what would be done without executing
     --help               Show this help message
 
 TIMING OPTIONS:
-    --phase1-duration S  Normal operations duration (default: 120s)
-    --phase2-duration S  Disruption burst duration (default: 180s)
-    --phase3-duration S  Continued high load duration (default: 120s)
-    --phase4-duration S  Recovery phase duration (default: 120s)
+    --phase1-duration S  Normal shopping duration (default: 120s)
+    --phase2-duration S  Black Friday burst duration (default: 180s)
+    --phase3-duration S  Sustained peak duration (default: 120s)
+    --phase4-duration S  Wind-down duration (default: 120s)
 
 TRAFFIC OPTIONS:
     --normal-rps N       Normal request rate (default: 5)
@@ -228,16 +233,16 @@ TRAFFIC OPTIONS:
 
 EXAMPLES:
     # Quick demo with defaults (recommended: use --stress-test for reliable scaling)
-    ./demo_airline_scenario.sh --full-demo --stress-test
+    ./demo-ecommerce.sh --full-demo --stress-test
 
     # Shorter demo for testing
-    ./demo_airline_scenario.sh --full-demo --stress-test --phase1-duration 60 --phase2-duration 90
+    ./demo-ecommerce.sh --full-demo --stress-test --phase1-duration 60 --phase2-duration 90
 
     # Load test only (deployment already exists)
-    ./demo_airline_scenario.sh --load-test-only --stress-test --namespace my-ns
+    ./demo-ecommerce.sh --load-test-only --stress-test --namespace my-ns
 
     # View Grafana during demo
-    ./demo_airline_scenario.sh --full-demo --open-grafana
+    ./demo-ecommerce.sh --full-demo --open-grafana
 
 GRAFANA DASHBOARD:
     The demo works best when viewed alongside the Dynamo Planner Dashboard.
@@ -401,7 +406,7 @@ check_prerequisites() {
 }
 
 setup_output_dir() {
-    OUTPUT_DIR="/tmp/airline_demo_$(date +%Y%m%d_%H%M%S)"
+    OUTPUT_DIR="/tmp/ecommerce_demo_$(date +%Y%m%d_%H%M%S)"
     mkdir -p "$OUTPUT_DIR"
     DEMO_LOG="$OUTPUT_DIR/demo.log"
     touch "$DEMO_LOG"
@@ -421,21 +426,21 @@ create_namespace() {
 # DGDR Generation and Deployment
 # =============================================================================
 generate_dgdr() {
-    local output_file="$OUTPUT_DIR/airline-assistant-dgdr.yaml"
+    local output_file="$OUTPUT_DIR/ecommerce-assistant-dgdr.yaml"
 
-    log_info "Generating DGDR for Airline AI Assistant..."
+    log_info "Generating DGDR for E-Commerce AI Assistant..."
 
     cat > "$output_file" << EOF
-# Airline AI Assistant - DynamoGraphDeploymentRequest
-# Generated by demo_airline_scenario.sh for blog demo
+# E-Commerce AI Assistant - DynamoGraphDeploymentRequest
+# Generated by demo-ecommerce.sh
 apiVersion: nvidia.com/v1beta1
 kind: DynamoGraphDeploymentRequest
 metadata:
   name: ${DEPLOYMENT_NAME}
   namespace: ${NAMESPACE}
   labels:
-    app: airline-assistant
-    demo: airline-scenario
+    app: ecommerce-assistant
+    demo: blackfriday-scenario
 spec:
   model: ${MODEL}
   backend: ${BACKEND}
@@ -549,7 +554,7 @@ deploy_dgdr() {
 }
 
 wait_for_deployment() {
-    log_phase "🚀" "DEPLOYMENT" "Waiting for Airline AI Assistant to be ready..."
+    log_phase "🚀" "DEPLOYMENT" "Waiting for E-Commerce AI Assistant to be ready..."
 
     # Wait for DGD to be ready
     local max_wait=600
@@ -687,7 +692,7 @@ cleanup_port_forwards() {
 }
 
 # =============================================================================
-# Load Test Phases (Airline Scenario)
+# Load Test Phases (E-Commerce Scenario)
 # =============================================================================
 run_aiperf_phase() {
     local phase_name="$1"
@@ -756,8 +761,8 @@ run_aiperf_phase() {
     show_pod_status
 }
 
-run_airline_load_test() {
-    log_phase "🛫" "AIRLINE SCENARIO LOAD TEST" "Simulating real-world traffic patterns"
+run_ecommerce_load_test() {
+    log_phase "🛒" "BLACK FRIDAY LOAD TEST" "Simulating e-commerce traffic patterns"
 
     local test_dir="$OUTPUT_DIR/load_test"
     mkdir -p "$test_dir"
@@ -768,13 +773,13 @@ run_airline_load_test() {
     echo ""
 
     # =========================================================================
-    # PHASE 1: Normal Operations
+    # PHASE 1: Normal Shopping
     # =========================================================================
-    log_phase "😊" "PHASE 1: NORMAL OPERATIONS" \
-        "Passengers checking flight status - short queries, low traffic"
+    log_phase "😊" "PHASE 1: NORMAL SHOPPING" \
+        "Customers browsing product recommendations - short queries, low traffic"
 
-    echo -e "${CYAN}Sample Query:${NC} \"What's the status of flight UA123?\""
-    echo -e "${CYAN}Expected Response:${NC} Brief status update (~100 tokens)"
+    echo -e "${CYAN}Sample Query:${NC} \"Show me the best deals on wireless headphones\""
+    echo -e "${CYAN}Expected Response:${NC} Brief product recommendation (~100 tokens)"
     echo ""
 
     run_aiperf_phase "normal_ops" \
@@ -785,39 +790,39 @@ run_airline_load_test() {
     sleep 15
 
     # =========================================================================
-    # PHASE 2: Flight Disruption Announced!
+    # PHASE 2: Black Friday Launch!
     # =========================================================================
-    log_phase "⚠️" "PHASE 2: FLIGHT DISRUPTION!" \
-        "Major delays announced - traffic SPIKES, queries get LONGER"
+    log_phase "⚠️" "PHASE 2: BLACK FRIDAY LAUNCH!" \
+        "Flash deals go live - traffic SPIKES, queries get LONGER"
 
     echo ""
-    echo -e "${RED}${BOLD}🚨 ATTENTION: Multiple flight delays due to weather!${NC}"
-    echo -e "${RED}${BOLD}   Passengers flooding the app for rerouting assistance...${NC}"
+    echo -e "${RED}${BOLD}🚨 BLACK FRIDAY DEALS ARE LIVE!${NC}"
+    echo -e "${RED}${BOLD}   Shoppers flooding the site for deal comparisons...${NC}"
     echo ""
-    echo -e "${CYAN}Sample Query:${NC} \"My flight UA456 is cancelled. I need to get to NYC"
-    echo -e "              by tomorrow for an important meeting. I prefer aisle seats,"
-    echo -e "              have TSA PreCheck, and need to consider my connecting flights"
-    echo -e "              from NYC to Boston. What are all my options?\""
-    echo -e "${CYAN}Expected Response:${NC} Detailed itinerary analysis (~500 tokens)"
+    echo -e "${CYAN}Sample Query:${NC} \"Compare these 5 gaming laptops under \$1500. I need"
+    echo -e "              good battery life for travel, at least 16GB RAM, and"
+    echo -e "              compatibility with my existing USB-C dock. Also suggest"
+    echo -e "              any bundle deals with peripherals.\""
+    echo -e "${CYAN}Expected Response:${NC} Detailed product comparison (~500 tokens)"
     echo ""
 
     log_info "🔄 Planner should detect increased load and scale UP workers..."
     echo ""
 
-    run_aiperf_phase "disruption_burst" \
+    run_aiperf_phase "blackfriday_burst" \
         "$BURST_RPS" "$PHASE2_DURATION" "$LONG_ISL" "$LONG_OSL" \
-        "$test_dir/phase2_disruption"
+        "$test_dir/phase2_blackfriday"
 
     log_info "Transition pause - observing scaling response..."
     sleep 20
 
     # =========================================================================
-    # PHASE 3: Sustained High Load
+    # PHASE 3: Sustained Peak Shopping
     # =========================================================================
-    log_phase "📈" "PHASE 3: SUSTAINED HIGH LOAD" \
-        "Continued rerouting requests with mixed query lengths"
+    log_phase "📈" "PHASE 3: SUSTAINED PEAK" \
+        "Deal comparisons and cart optimization with mixed query lengths"
 
-    echo -e "${YELLOW}Passengers still seeking alternatives, but some quick status checks too${NC}"
+    echo -e "${YELLOW}Shoppers still comparing deals, but some quick price checks too${NC}"
     echo ""
 
     # Mix of short and long queries at moderate-high rate
@@ -833,12 +838,12 @@ run_airline_load_test() {
     sleep 15
 
     # =========================================================================
-    # PHASE 4: Recovery
+    # PHASE 4: Wind-Down
     # =========================================================================
-    log_phase "😌" "PHASE 4: RECOVERY" \
-        "Situation stabilizing - traffic returning to normal"
+    log_phase "😌" "PHASE 4: WIND-DOWN" \
+        "Sale ending - traffic returning to normal"
 
-    echo -e "${GREEN}Alternative flights booked, passengers settling down...${NC}"
+    echo -e "${GREEN}Carts checked out, deals winding down...${NC}"
     echo ""
 
     log_info "🔄 Planner should detect decreased load and scale DOWN workers..."
@@ -884,10 +889,10 @@ print_results_summary() {
     echo ""
 
     echo -e "${BOLD}Traffic Scenario:${NC}"
-    echo "  Phase 1 (Normal):     ${NORMAL_RPS} req/s, ISL=${SHORT_ISL}, OSL=${SHORT_OSL}"
-    echo "  Phase 2 (Disruption): ${BURST_RPS} req/s, ISL=${LONG_ISL}, OSL=${LONG_OSL}"
-    echo "  Phase 3 (Sustained):  $((BURST_RPS * 3 / 4)) req/s, mixed ISL/OSL"
-    echo "  Phase 4 (Recovery):   ${NORMAL_RPS} req/s, ISL=${SHORT_ISL}, OSL=${SHORT_OSL}"
+    echo "  Phase 1 (Normal):       ${NORMAL_RPS} req/s, ISL=${SHORT_ISL}, OSL=${SHORT_OSL}"
+    echo "  Phase 2 (Black Friday): ${BURST_RPS} req/s, ISL=${LONG_ISL}, OSL=${LONG_OSL}"
+    echo "  Phase 3 (Sustained):    $((BURST_RPS * 3 / 4)) req/s, mixed ISL/OSL"
+    echo "  Phase 4 (Wind-Down):    ${NORMAL_RPS} req/s, ISL=${SHORT_ISL}, OSL=${SHORT_OSL}"
     echo ""
 
     echo -e "${BOLD}Final Cluster State:${NC}"
@@ -1040,14 +1045,14 @@ main() {
         setup_grafana
         start_pod_monitor
 
-        run_airline_load_test
+        run_ecommerce_load_test
 
         stop_pod_monitor
         print_results_summary
     fi
 
     echo ""
-    log_success "✈️  Airline Demo Complete! ✈️"
+    log_success "🛒  E-Commerce Demo Complete! 🛒"
     echo ""
 }
 
