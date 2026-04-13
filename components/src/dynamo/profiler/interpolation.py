@@ -111,6 +111,8 @@ async def run_interpolation(
             ops.prefill_interpolation_granularity,
             estimator,
             tp_size=best_prefill_config.tp_size,
+            moe_tp_size=best_prefill_config.moe_tp,
+            moe_ep_size=best_prefill_config.moe_ep,
         )
     elif sweep_mode == PlannerPreDeploymentSweepMode.Thorough:
         logger.info("Using real GPUs for prefill interpolation.")
@@ -173,6 +175,8 @@ async def run_interpolation(
             isl,
             osl,
             tp_size=best_decode_config.tp_size,
+            moe_tp_size=best_decode_config.moe_tp,
+            moe_ep_size=best_decode_config.moe_ep,
         )
         profile_decode_aiconfigurator(
             work_dir,
@@ -183,6 +187,8 @@ async def run_interpolation(
             estimator,
             attention_dp_size,
             tp_size=best_decode_config.tp_size,
+            moe_tp_size=best_decode_config.moe_tp,
+            moe_ep_size=best_decode_config.moe_ep,
         )
     elif sweep_mode == PlannerPreDeploymentSweepMode.Thorough:
         logger.info("Using real GPUs for decode interpolation.")

@@ -83,6 +83,12 @@ LONG_OSL=500
 TTFT_TARGET=500        # 500ms Time To First Token
 ITL_TARGET=30          # 30ms Inter-Token Latency
 
+# Hardware constraints
+TOTAL_GPUS=""          # Empty = auto-detect all cluster GPUs
+MODEL_CACHE_PVC=""     # PVC name for pre-downloaded model weights
+MODEL_CACHE_MOUNT_PATH=""  # Mount path for model cache PVC (e.g. /home/dynamo/.cache/huggingface)
+MODEL_CACHE_MODEL_PATH=""  # Path to model within PVC (e.g. hub/models--Qwen--Qwen3-32B/snapshots/<rev>)
+
 # Flags
 FULL_DEMO=false
 LOAD_TEST_ONLY=false
@@ -315,6 +321,22 @@ parse_args() {
                 BURST_RPS="$2"
                 shift 2
                 ;;
+            --total-gpus)
+                TOTAL_GPUS="$2"
+                shift 2
+                ;;
+            --model-cache-pvc)
+                MODEL_CACHE_PVC="$2"
+                shift 2
+                ;;
+            --model-cache-mount-path)
+                MODEL_CACHE_MOUNT_PATH="$2"
+                shift 2
+                ;;
+            --model-cache-model-path)
+                MODEL_CACHE_MODEL_PATH="$2"
+                shift 2
+                ;;
             --skip-profiling)
                 SKIP_PROFILING=true
                 shift
@@ -379,7 +401,7 @@ check_prerequisites() {
     # aiperf (for load testing)
     if ! command -v aiperf &> /dev/null; then
         log_warning "aiperf not found. Install with: pip install aiperf"
-        if [[ "$LOAD_TEST_ONLY" == true ]] || [[ "$FULL_DEMO" == true ]]; then
+        if [[ "$DRY_RUN" != true ]] && { [[ "$LOAD_TEST_ONLY" == true ]] || [[ "$FULL_DEMO" == true ]]; }; then
             log_error "aiperf is required for load testing."
             exit 1
         fi
@@ -454,6 +476,26 @@ spec:
   sla:
     ttft: ${TTFT_TARGET}     # Time To First Token target (ms)
     itl: ${ITL_TARGET}       # Inter-Token Latency target (ms)
+
+  features:
+    planner:
+      enable_throughput_scaling: true
+      enable_load_scaling: false
+      mode: disagg
+$( [[ -n "$TOTAL_GPUS" ]] && cat <<HWEOF
+
+  hardware:
+    totalGpus: ${TOTAL_GPUS}
+HWEOF
+)
+$( [[ -n "$MODEL_CACHE_PVC" ]] && cat <<MCEOF
+
+  modelCache:
+    pvcName: ${MODEL_CACHE_PVC}
+$( [[ -n "$MODEL_CACHE_MOUNT_PATH" ]] && echo "    pvcMountPath: ${MODEL_CACHE_MOUNT_PATH}" )
+$( [[ -n "$MODEL_CACHE_MODEL_PATH" ]] && echo "    pvcModelPath: ${MODEL_CACHE_MODEL_PATH}" )
+MCEOF
+)
 EOF
 
     log_success "Generated DGDR: $output_file"
@@ -529,7 +571,8 @@ deploy_dgdr() {
                     return 0
                     ;;
                 "Deploying")
-                    log_info "Phase: Deploying - autoApply creating DynamoGraphDeployment..."
+                    log_success "Profiling complete! Deployment created via autoApply."
+                    return 0
                     ;;
                 "Deployed")
                     log_success "Profiling complete and deployment created!"
