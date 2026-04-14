@@ -83,6 +83,11 @@ LONG_OSL=500
 TTFT_TARGET=500        # 500ms Time To First Token
 ITL_TARGET=30          # 30ms Inter-Token Latency
 
+# Planner tuning
+MAX_GPU_BUDGET=""      # Empty = auto-detect cluster GPUs; set to cap planner scaling
+LOAD_PREDICTOR="constant"  # "constant" avoids ARIMA oscillation; also: arima, prophet, kalman
+MIN_ENDPOINT=1         # Minimum replicas per worker type (floor to prevent scale-to-zero)
+
 # Hardware constraints
 TOTAL_GPUS=""          # Empty = auto-detect all cluster GPUs
 MODEL_CACHE_PVC=""     # PVC name for pre-downloaded model weights
@@ -243,6 +248,11 @@ TRAFFIC OPTIONS:
                          This saturates the GPU and reliably triggers scaling.
                          Rate-limited mode may not generate enough load.
 
+PLANNER OPTIONS:
+    --max-gpu-budget N   Maximum GPUs the planner can use (default: auto-detect cluster)
+    --load-predictor P   Load predictor: constant, arima, prophet, kalman (default: constant)
+    --min-endpoint N     Minimum replicas per worker type (default: 1)
+
 EXAMPLES:
     # Quick demo with defaults (recommended: use --stress-test for reliable scaling)
     ./demo-ecommerce.sh --full-demo --stress-test
@@ -329,6 +339,18 @@ parse_args() {
                 ;;
             --total-gpus)
                 TOTAL_GPUS="$2"
+                shift 2
+                ;;
+            --max-gpu-budget)
+                MAX_GPU_BUDGET="$2"
+                shift 2
+                ;;
+            --load-predictor)
+                LOAD_PREDICTOR="$2"
+                shift 2
+                ;;
+            --min-endpoint)
+                MIN_ENDPOINT="$2"
                 shift 2
                 ;;
             --model-cache-pvc)
@@ -448,6 +470,23 @@ check_prerequisites() {
     log_success "Prerequisites check passed"
 }
 
+# Auto-detect cluster GPU count for MAX_GPU_BUDGET default
+auto_detect_gpu_budget() {
+    if [[ -n "$MAX_GPU_BUDGET" ]]; then
+        return 0  # User already set it
+    fi
+    local gpu_count
+    gpu_count=$(kubectl get nodes -o jsonpath='{.items[*].status.allocatable.nvidia\.com/gpu}' \
+        | tr ' ' '\n' | awk '{sum+=$1} END {print sum}')
+    if [[ -n "$gpu_count" && "$gpu_count" -gt 0 ]]; then
+        MAX_GPU_BUDGET="$gpu_count"
+        log_info "Auto-detected ${gpu_count} cluster GPUs → max_gpu_budget=${MAX_GPU_BUDGET}"
+    else
+        MAX_GPU_BUDGET=8
+        log_warning "Could not detect cluster GPUs, using default max_gpu_budget=8"
+    fi
+}
+
 setup_output_dir() {
     OUTPUT_DIR="/tmp/ecommerce_demo_$(date +%Y%m%d_%H%M%S)"
     mkdir -p "$OUTPUT_DIR"
@@ -463,6 +502,132 @@ create_namespace() {
     else
         log_info "Using existing namespace: $NAMESPACE"
     fi
+}
+
+ensure_prometheus_endpoint() {
+    # The Dynamo operator needs prometheusEndpoint configured to:
+    #   1. Create PodMonitors for scraping Dynamo component metrics
+    #   2. Inject PROMETHEUS_ENDPOINT env var into managed pods
+    # Without this, the planner gets NaN metrics and never scales.
+
+    local prom_endpoint="http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+    local operator_ns="dynamo-system"
+    local chart_name="dynamo-platform"
+
+    # Detect the operator namespace (helm release may be in a different namespace)
+    local helm_ns
+    helm_ns=$(helm list -A --filter "$chart_name" -o json 2>/dev/null \
+        | python3 -c "import sys,json; r=json.load(sys.stdin); print(r[0]['namespace'] if r else '')" 2>/dev/null || echo "")
+    if [[ -n "$helm_ns" ]]; then
+        operator_ns="$helm_ns"
+    fi
+
+    # Check if prometheusEndpoint is already configured
+    local current_endpoint
+    current_endpoint=$(kubectl get configmap -n "$operator_ns" -l app.kubernetes.io/name=dynamo-operator \
+        -o jsonpath='{.items[0].data.config\.yaml}' 2>/dev/null \
+        | python3 -c "import sys,yaml; c=yaml.safe_load(sys.stdin); print(c.get('infrastructure',{}).get('prometheusEndpoint',''))" 2>/dev/null || echo "")
+
+    if [[ -n "$current_endpoint" ]]; then
+        log_success "Prometheus endpoint already configured: $current_endpoint"
+        return 0
+    fi
+
+    # Verify Prometheus is actually reachable before configuring
+    if ! kubectl get svc prometheus-kube-prometheus-prometheus -n monitoring &>/dev/null; then
+        log_warning "Prometheus service not found in monitoring namespace"
+        log_warning "Planner metrics may not work. Install kube-prometheus-stack first."
+        return 0
+    fi
+
+    log_info "Configuring Dynamo operator with Prometheus endpoint..."
+    log_info "Running: helm upgrade $chart_name --set dynamo-operator.dynamo.metrics.prometheusEndpoint=..."
+
+    if ! helm upgrade "$chart_name" nvidia-dynamo/dynamo-platform \
+        --namespace "$operator_ns" \
+        --reuse-values \
+        --set "dynamo-operator.dynamo.metrics.prometheusEndpoint=$prom_endpoint" 2>/dev/null; then
+
+        # Try with local chart name variations
+        if ! helm upgrade "$chart_name" dynamo-platform \
+            --namespace "$operator_ns" \
+            --reuse-values \
+            --set "dynamo-operator.dynamo.metrics.prometheusEndpoint=$prom_endpoint" 2>/dev/null; then
+            log_warning "Helm upgrade failed. You may need to run manually:"
+            log_warning "  helm upgrade $chart_name <chart> --namespace $operator_ns --reuse-values \\"
+            log_warning "    --set dynamo-operator.dynamo.metrics.prometheusEndpoint=$prom_endpoint"
+            return 0
+        fi
+    fi
+
+    log_success "Prometheus endpoint configured. Operator will now create PodMonitors."
+
+    # Wait briefly for operator to reconcile and create PodMonitors
+    log_info "Waiting for operator to reconcile..."
+    sleep 10
+}
+
+fix_planner_namespace() {
+    # The DGDR profiler generates a planner ConfigMap with "namespace": "dynamo",
+    # but the operator sets DYN_NAMESPACE to "{k8s_namespace}-{dgd_name}".
+    # Since Pydantic model_validate prefers JSON values over default_factory,
+    # the planner queries Prometheus with dynamo_namespace="dynamo" instead of
+    # the correct value, matching zero metrics → NaN → no scaling.
+    #
+    # This function patches the ConfigMap to use the correct namespace.
+
+    local dgd_name="$1"
+    local dynamo_ns="${NAMESPACE}-${dgd_name}"
+
+    log_info "Checking planner ConfigMap namespace..."
+
+    # Find the planner config ConfigMap (name pattern: planner-config-*)
+    local cm_name
+    cm_name=$(kubectl get configmap -n "$NAMESPACE" -o name 2>/dev/null \
+        | grep "planner-config" | head -1 | sed 's|configmap/||')
+
+    if [[ -z "$cm_name" ]]; then
+        log_info "No planner ConfigMap found yet (may not have been created by DGDR)"
+        return 0
+    fi
+
+    # Check current namespace value
+    local current_ns
+    current_ns=$(kubectl get configmap "$cm_name" -n "$NAMESPACE" \
+        -o jsonpath='{.data.planner_config\.json}' 2>/dev/null \
+        | python3 -c "import sys,json; c=json.load(sys.stdin); print(c.get('namespace',''))" 2>/dev/null || echo "")
+
+    if [[ "$current_ns" == "$dynamo_ns" ]]; then
+        log_success "Planner ConfigMap namespace already correct: $dynamo_ns"
+        return 0
+    fi
+
+    log_info "Patching planner ConfigMap namespace: '$current_ns' → '$dynamo_ns'"
+
+    # Patch the ConfigMap in-place
+    local config_json
+    config_json=$(kubectl get configmap "$cm_name" -n "$NAMESPACE" \
+        -o jsonpath='{.data.planner_config\.json}')
+
+    local patched_json
+    patched_json=$(echo "$config_json" | python3 -c "
+import sys, json
+c = json.load(sys.stdin)
+c['namespace'] = '$dynamo_ns'
+print(json.dumps(c))
+")
+
+    kubectl create configmap "$cm_name" \
+        -n "$NAMESPACE" \
+        --from-literal="planner_config.json=$patched_json" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    log_success "Planner ConfigMap namespace patched to: $dynamo_ns"
+
+    # Restart the planner pod to pick up the new config
+    log_info "Restarting planner pod to apply namespace fix..."
+    kubectl delete pod -n "$NAMESPACE" -l nvidia.com/dynamo-component=Planner --ignore-not-found 2>/dev/null || true
+    sleep 5
 }
 
 # =============================================================================
@@ -501,8 +666,11 @@ spec:
   features:
     planner:
       enable_throughput_scaling: true
-      enable_load_scaling: false
+      enable_load_scaling: true
       mode: disagg
+      load_predictor: ${LOAD_PREDICTOR}
+      min_endpoint: ${MIN_ENDPOINT}
+$( [[ -n "$MAX_GPU_BUDGET" ]] && echo "      max_gpu_budget: ${MAX_GPU_BUDGET}" )
 $( [[ -n "$TOTAL_GPUS" ]] && cat <<HWEOF
 
   hardware:
@@ -1093,6 +1261,11 @@ cleanup_resources() {
     kubectl delete configmap "dgdr-output-${DEPLOYMENT_NAME}" -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
     kubectl delete configmap "planner-profile-data" -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
 
+    # Delete planner-config-* ConfigMaps (stale namespace values cause NaN metrics on next run)
+    kubectl get configmap -n "$NAMESPACE" -o name 2>/dev/null \
+        | grep "planner-config" \
+        | xargs -r kubectl delete -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+
     # Wait for pods to terminate
     log_info "Waiting for pods to terminate..."
     sleep 30
@@ -1157,6 +1330,12 @@ main() {
     # Create namespace
     create_namespace
 
+    # Auto-detect GPU budget if not set
+    auto_detect_gpu_budget
+
+    # Ensure Prometheus endpoint is configured in the Dynamo operator
+    ensure_prometheus_endpoint
+
     # Deploy if needed
     if [[ "$FULL_DEMO" == true ]] || [[ "$DEPLOY_ONLY" == true ]]; then
         local dgdr_file
@@ -1174,6 +1353,12 @@ main() {
         fi
 
         wait_for_deployment || exit 1
+
+        # Fix planner ConfigMap namespace (DGDR profiler writes "dynamo" but
+        # the operator sets DYN_NAMESPACE to "{namespace}-{dgd_name}")
+        local dgd_name
+        dgd_name=$(kubectl get dgd -n "$NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "$DEPLOYMENT_NAME")
+        fix_planner_namespace "$dgd_name"
 
         if [[ "$DEPLOY_ONLY" == true ]]; then
             log_success "Deployment complete!"
