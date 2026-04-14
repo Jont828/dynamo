@@ -110,7 +110,7 @@ async def run_interpolation(
             sweep_max_context_length,
             ops.prefill_interpolation_granularity,
             estimator,
-            tp_size=best_prefill_config.tp_size,
+            tp_size=best_prefill_config.tp,
             moe_tp_size=best_prefill_config.moe_tp,
             moe_ep_size=best_prefill_config.moe_ep,
         )
@@ -174,7 +174,8 @@ async def run_interpolation(
         max_kv_tokens = estimator.get_max_kv_tokens(
             isl,
             osl,
-            tp_size=best_decode_config.tp_size,
+            tp_size=best_decode_config.tp,
+            attention_dp_size=best_decode_config.dp,
             moe_tp_size=best_decode_config.moe_tp,
             moe_ep_size=best_decode_config.moe_ep,
         )
@@ -186,7 +187,7 @@ async def run_interpolation(
             ops.decode_interpolation_granularity,
             estimator,
             attention_dp_size,
-            tp_size=best_decode_config.tp_size,
+            tp_size=best_decode_config.tp,
             moe_tp_size=best_decode_config.moe_tp,
             moe_ep_size=best_decode_config.moe_ep,
         )

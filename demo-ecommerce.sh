@@ -59,6 +59,7 @@ NAMESPACE="${NAMESPACE:-dynamo-demo}"
 IMAGE_TAG="${IMAGE_TAG:-1.0.1}"
 MODEL="${MODEL:-Qwen/Qwen3-32B}"
 BACKEND="${BACKEND:-vllm}"
+DGDR_IMAGE="${DGDR_IMAGE:-}"
 DEPLOYMENT_NAME="ecommerce-assistant"
 
 # Demo timing (in seconds)
@@ -94,6 +95,7 @@ MODEL_CACHE_PVC=""     # PVC name for pre-downloaded model weights
 MODEL_CACHE_MOUNT_PATH=""  # Mount path for model cache PVC (e.g. /home/dynamo/.cache/huggingface)
 MODEL_CACHE_MODEL_PATH=""  # Path to model within PVC (e.g. hub/models--Qwen--Qwen3-32B/snapshots/<rev>)
 DEPLOY_TIMEOUT=0       # Deploy wait timeout in seconds (0 = no timeout)
+AUTO_APPLY=true        # Whether the operator should auto-deploy after profiling
 
 # Flags
 FULL_DEMO=false
@@ -228,8 +230,11 @@ DEMO MODES:
 
 OPTIONS:
     --namespace NS       Kubernetes namespace (default: dynamo-demo)
+    --model MODEL        Model HuggingFace ID (default: Qwen/Qwen3-32B)
     --image-tag TAG      Dynamo runtime image tag (default: 1.0.1)
     --backend BACKEND    Backend: vllm, sglang, trtllm (default: vllm)
+    --auto-apply         Auto-deploy after profiling (default)
+    --no-auto-apply      Skip auto-deploy; profiling only
     --open-grafana       Auto-open Grafana dashboard
     --dry-run            Show what would be done without executing
     --help               Show this help message
@@ -299,6 +304,14 @@ parse_args() {
                 ;;
             --image-tag)
                 IMAGE_TAG="$2"
+                shift 2
+                ;;
+            --model)
+                MODEL="$2"
+                shift 2
+                ;;
+            --image)
+                DGDR_IMAGE="$2"
                 shift 2
                 ;;
             --backend)
@@ -376,6 +389,14 @@ parse_args() {
             --deploy-timeout)
                 DEPLOY_TIMEOUT="$2"
                 shift 2
+                ;;
+            --auto-apply)
+                AUTO_APPLY=true
+                shift
+                ;;
+            --no-auto-apply)
+                AUTO_APPLY=false
+                shift
                 ;;
             --help|-h)
                 show_help
@@ -653,7 +674,8 @@ spec:
   model: ${MODEL}
   backend: ${BACKEND}
   searchStrategy: rapid
-  autoApply: true
+  autoApply: ${AUTO_APPLY}
+$( [[ -n "$DGDR_IMAGE" ]] && echo "  image: ${DGDR_IMAGE}" )
 
   workload:
     isl: 3000        # Average: mix of short and long queries
