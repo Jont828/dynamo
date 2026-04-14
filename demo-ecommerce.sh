@@ -88,6 +88,7 @@ TOTAL_GPUS=""          # Empty = auto-detect all cluster GPUs
 MODEL_CACHE_PVC=""     # PVC name for pre-downloaded model weights
 MODEL_CACHE_MOUNT_PATH=""  # Mount path for model cache PVC (e.g. /home/dynamo/.cache/huggingface)
 MODEL_CACHE_MODEL_PATH=""  # Path to model within PVC (e.g. hub/models--Qwen--Qwen3-32B/snapshots/<rev>)
+DEPLOY_TIMEOUT=0       # Deploy wait timeout in seconds (0 = no timeout)
 
 # Flags
 FULL_DEMO=false
@@ -97,6 +98,10 @@ DRY_RUN=false
 OPEN_GRAFANA=false
 RECORD_DEMO=false
 STRESS_TEST=true        # Use concurrency burst mode for maximum load (recommended for demo)
+
+# AIPerf
+AIPERF_DIR="${AIPERF_DIR:-$HOME/go/src/aiperf}"
+AIPERF_VENV="$AIPERF_DIR/venv"
 
 # Port forwarding
 LOCAL_PORT=8000
@@ -229,6 +234,7 @@ TIMING OPTIONS:
     --phase2-duration S  Black Friday burst duration (default: 180s)
     --phase3-duration S  Sustained peak duration (default: 120s)
     --phase4-duration S  Wind-down duration (default: 120s)
+    --deploy-timeout S   Deploy wait timeout in seconds (default: 0 = no timeout)
 
 TRAFFIC OPTIONS:
     --normal-rps N       Normal request rate (default: 5)
@@ -345,6 +351,10 @@ parse_args() {
                 STRESS_TEST=true
                 shift
                 ;;
+            --deploy-timeout)
+                DEPLOY_TIMEOUT="$2"
+                shift 2
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -399,12 +409,23 @@ check_prerequisites() {
     fi
 
     # aiperf (for load testing)
-    if ! command -v aiperf &> /dev/null; then
-        log_warning "aiperf not found. Install with: pip install aiperf"
-        if [[ "$DRY_RUN" != true ]] && { [[ "$LOAD_TEST_ONLY" == true ]] || [[ "$FULL_DEMO" == true ]]; }; then
-            log_error "aiperf is required for load testing."
+    if [[ ! -d "$AIPERF_VENV" ]]; then
+        log_info "Creating aiperf venv at $AIPERF_VENV..."
+        if [[ ! -d "$AIPERF_DIR" ]]; then
+            log_error "aiperf repo not found at $AIPERF_DIR. Set AIPERF_DIR to the correct path."
             exit 1
         fi
+        (cd "$AIPERF_DIR" && python3.11 -m venv venv && source venv/bin/activate && pip install -e . >/dev/null 2>&1)
+        log_success "aiperf venv created"
+    fi
+    # Verify aiperf is available in the venv
+    if ! "$AIPERF_VENV/bin/aiperf" --help &> /dev/null; then
+        log_error "aiperf not working in $AIPERF_VENV. Try: cd $AIPERF_DIR && source venv/bin/activate && pip install -e ."
+        if [[ "$DRY_RUN" != true ]] && { [[ "$LOAD_TEST_ONLY" == true ]] || [[ "$FULL_DEMO" == true ]]; }; then
+            exit 1
+        fi
+    else
+        log_success "aiperf available at $AIPERF_VENV/bin/aiperf"
     fi
 
     # Check for Prometheus
@@ -599,29 +620,92 @@ deploy_dgdr() {
 wait_for_deployment() {
     log_phase "🚀" "DEPLOYMENT" "Waiting for E-Commerce AI Assistant to be ready..."
 
-    # Wait for DGD to be ready
-    local max_wait=600
+    # Find the actual DGD name (profiler may generate a different name than DEPLOYMENT_NAME)
+    local dgd_name=""
+    local discover_elapsed=0
+    while [[ $discover_elapsed -lt 60 ]]; do
+        dgd_name=$(kubectl get dgd -n "$NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        if [[ -n "$dgd_name" ]]; then
+            log_info "Found DGD: $dgd_name"
+            break
+        fi
+        sleep 5
+        discover_elapsed=$((discover_elapsed + 5))
+    done
+
+    if [[ -z "$dgd_name" ]]; then
+        # Fallback to DEPLOYMENT_NAME
+        dgd_name="$DEPLOYMENT_NAME"
+        log_warning "No DGD found via discovery, using name: $dgd_name"
+    fi
+
+    # Wait for all worker pods to be ready
+    # DEPLOY_TIMEOUT=0 means no timeout (wait forever)
+    local max_wait=${DEPLOY_TIMEOUT:-0}
     local elapsed=0
+    local last_loading_pct=""
 
-    while [[ $elapsed -lt $max_wait ]]; do
-        if kubectl get dgd "$DEPLOYMENT_NAME" -n "$NAMESPACE" &> /dev/null; then
-            local ready
-            ready=$(kubectl get dgd "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+    if [[ "$max_wait" -eq 0 ]]; then
+        log_info "No deploy timeout set — will wait until all workers are ready"
+    else
+        log_info "Deploy timeout: ${max_wait}s"
+    fi
 
-            if [[ "$ready" == "True" ]]; then
-                log_success "Deployment is ready!"
-                show_pod_status
-                return 0
+    while [[ "$max_wait" -eq 0 ]] || [[ $elapsed -lt $max_wait ]]; do
+        # Check DGD ready condition
+        local ready
+        ready=$(kubectl get dgd "$dgd_name" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+
+        if [[ "$ready" == "True" ]]; then
+            log_success "Deployment is ready!"
+            show_pod_status
+            return 0
+        fi
+
+        # Count ready vs total worker pods
+        local total_workers ready_workers
+        total_workers=$(kubectl get pods -n "$NAMESPACE" \
+            -l "nvidia.com/dynamo-graph-deployment-name=$dgd_name" \
+            --no-headers 2>/dev/null | grep -cE "worker" || echo 0)
+        ready_workers=$(kubectl get pods -n "$NAMESPACE" \
+            -l "nvidia.com/dynamo-graph-deployment-name=$dgd_name" \
+            --no-headers 2>/dev/null | grep -E "worker" | grep -c "1/1" || echo 0)
+
+        if [[ "$total_workers" -gt 0 && "$ready_workers" -eq "$total_workers" ]]; then
+            log_success "All $total_workers workers ready!"
+            show_pod_status
+            return 0
+        fi
+
+        # Show loading progress from a non-ready worker
+        local loading_pct=""
+        local not_ready_pod
+        not_ready_pod=$(kubectl get pods -n "$NAMESPACE" \
+            -l "nvidia.com/dynamo-graph-deployment-name=$dgd_name" \
+            --no-headers 2>/dev/null | grep -E "worker" | grep "0/1" | head -1 | awk '{print $1}')
+
+        if [[ -n "$not_ready_pod" ]]; then
+            loading_pct=$(kubectl logs "$not_ready_pod" -n "$NAMESPACE" --tail=50 2>/dev/null \
+                | grep -oE "Loading safetensors.*Completed \| [0-9]+/[0-9]+" | tail -1 || echo "")
+            if [[ -z "$loading_pct" ]]; then
+                # Check for torch.compile or other post-loading phases
+                loading_pct=$(kubectl logs "$not_ready_pod" -n "$NAMESPACE" --tail=20 2>/dev/null \
+                    | grep -oE "(torch.compile|CUDA graph|Warmup|Registered|model loaded|Model loading took).*" | tail -1 || echo "")
             fi
         fi
 
-        log_info "Waiting for pods to be ready... (${elapsed}s elapsed)"
-        show_pod_status
+        if [[ -n "$loading_pct" && "$loading_pct" != "$last_loading_pct" ]]; then
+            log_info "Workers: ${ready_workers}/${total_workers} ready (${elapsed}s) — $loading_pct"
+            last_loading_pct="$loading_pct"
+        else
+            log_info "Workers: ${ready_workers}/${total_workers} ready (${elapsed}s)"
+        fi
+
         sleep 15
         elapsed=$((elapsed + 15))
     done
 
-    log_error "Timeout waiting for deployment"
+    log_error "Timeout waiting for deployment after ${max_wait}s"
     return 1
 }
 
@@ -747,6 +831,10 @@ run_aiperf_phase() {
 
     mkdir -p "$artifact_dir"
     
+    # Activate aiperf venv and suppress noisy pydantic warnings
+    source "$AIPERF_VENV/bin/activate"
+    export PYTHONWARNINGS="ignore::UserWarning"
+
     # Ensure port forward is healthy before starting
     restart_port_forward || return 1
 
@@ -768,14 +856,16 @@ run_aiperf_phase() {
             --streaming \
             --synthetic-input-tokens-mean "$isl" \
             --output-tokens-mean "$osl" \
+            --extra-inputs ignore_eos:true \
             --concurrency "$concurrency" \
             --benchmark-duration "$duration" \
             --goodput "time_to_first_token:${TTFT_TARGET} inter_token_latency:${ITL_TARGET}" \
             --artifact-dir "$artifact_dir" \
             --ui-type simple \
-            2>&1 | tee "$artifact_dir/aiperf.log" || {
-                log_warning "Phase completed with warnings"
-            }
+            > "$artifact_dir/aiperf.log" 2>&1 &
+        local aiperf_pid=$!
+        log_success "Load test started (PID: $aiperf_pid)"
+        log_info "Log: $artifact_dir/aiperf.log"
     else
         # Rate-limited mode - realistic traffic pattern
         local request_count=$(echo "$rps * $duration" | bc | cut -d. -f1)
@@ -790,16 +880,28 @@ run_aiperf_phase() {
             --streaming \
             --synthetic-input-tokens-mean "$isl" \
             --output-tokens-mean "$osl" \
+            --extra-inputs ignore_eos:true \
             --request-rate "$rps" \
             --concurrency 100 \
             --request-count "$request_count" \
             --goodput "time_to_first_token:${TTFT_TARGET} inter_token_latency:${ITL_TARGET}" \
             --artifact-dir "$artifact_dir" \
             --ui-type simple \
-            2>&1 | tee "$artifact_dir/aiperf.log" || {
-                log_warning "Phase completed with warnings"
-            }
+            > "$artifact_dir/aiperf.log" 2>&1 &
+        local aiperf_pid=$!
+        log_success "Load test started (PID: $aiperf_pid)"
+        log_info "Log: $artifact_dir/aiperf.log"
     fi
+
+    # Monitor while aiperf runs in the background
+    local elapsed=0
+    while kill -0 "$aiperf_pid" 2>/dev/null; do
+        show_pod_status
+        sleep 15
+        elapsed=$((elapsed + 15))
+    done
+    wait "$aiperf_pid" 2>/dev/null || log_warning "Phase completed with warnings"
+    log_success "Phase '$phase_name' complete (${elapsed}s)"
 
     show_pod_status
 }
