@@ -38,6 +38,7 @@ BACKEND="${BACKEND:-vllm}"
 TTFT_TARGET=500
 ITL_TARGET=30
 DGDR_NAME="ecommerce-shopping-assistant"
+AUTO_APPLY="${AUTO_APPLY:-true}"
 DO_CLEANUP=true
 PORT_FORWARD_PORT=8000
 
@@ -45,6 +46,7 @@ PORT_FORWARD_PORT=8000
 PVC_NAME="${PVC_NAME:-model-cache}"
 PVC_MOUNT_PATH="${PVC_MOUNT_PATH:-/home/dynamo/.cache/huggingface}"
 PVC_MODEL_PATH="${PVC_MODEL_PATH:-hub/models--Qwen--Qwen3-32B/snapshots/9216db5781bf21249d130ec9da846c4624c16137}"
+DGDR_IMAGE="${DGDR_IMAGE:-}"
 
 # Colors and styles
 RED='\033[0;31m'
@@ -75,7 +77,10 @@ while [[ $# -gt 0 ]]; do
         --pvc-name)        PVC_NAME="$2"; shift 2 ;;
         --pvc-mount-path)  PVC_MOUNT_PATH="$2"; shift 2 ;;
         --pvc-model-path)  PVC_MODEL_PATH="$2"; shift 2 ;;
+        --image)           DGDR_IMAGE="$2"; shift 2 ;;
         --no-cleanup)      DO_CLEANUP=false; shift ;;
+        --auto-apply)      AUTO_APPLY=true; shift ;;
+        --no-auto-apply)   AUTO_APPLY=false; shift ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -92,6 +97,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --pvc-name NAME    PVC name for model cache (default: model-cache)"
             echo "  --pvc-mount-path P Mount path for model cache PVC (default: /home/dynamo/.cache/huggingface)"
             echo "  --pvc-model-path P Relative model path inside PVC (default: hub/models--Qwen--Qwen3-32B/snapshots/...)"
+            echo "  --auto-apply       Auto-deploy after profiling (default)"
+            echo "  --no-auto-apply    Skip auto-deploy; profiling only"
             echo "  --no-cleanup       Don't delete DGDR on exit"
             exit 0
             ;;
@@ -186,7 +193,8 @@ spec:
   model: ${MODEL}
   backend: ${BACKEND}
   searchStrategy: rapid
-  autoApply: true
+  autoApply: ${AUTO_APPLY}
+$( [[ -n "$DGDR_IMAGE" ]] && echo "  image: ${DGDR_IMAGE}" )
 
   modelCache:
     pvcName: ${PVC_NAME}
@@ -256,7 +264,7 @@ echo -e "   - ${CYAN}model${NC}: ${MODEL}"
 echo -e "   - ${CYAN}sla.ttft${NC}: ${TTFT_TARGET}ms - First token in under half a second"
 echo -e "   - ${CYAN}sla.itl${NC}: ${ITL_TARGET}ms - Smooth ${ITL_TARGET}ms streaming"
 echo -e "   - ${CYAN}searchStrategy${NC}: rapid - Fast profiling"
-echo -e "   - ${CYAN}autoApply${NC}: true - Deploy automatically when profiling is done"
+echo -e "   - ${CYAN}autoApply${NC}: ${AUTO_APPLY} - $(if [[ "$AUTO_APPLY" == "true" ]]; then echo "Deploy automatically when profiling is done"; else echo "Profiling only, manual approval required"; fi)"
 echo -e "   - ${CYAN}modelCache${NC}: Pre-downloaded model from PVC (no HuggingFace at deploy time)"
 echo -e "   - ${CYAN}planner.mode${NC}: disagg - Separate prefill/decode scaling"
 
@@ -539,10 +547,90 @@ echo "   +---------------------------------------------------------+"
 
 pause 3
 
-narrate "With autoApply: true, Dynamo is already deploying this."
-narrate "You didn't have to review or approve anything."
+if [[ "$AUTO_APPLY" == "true" ]]; then
+    narrate "With autoApply: true, Dynamo is already deploying this."
+    narrate "You didn't have to review or approve anything."
+else
+    narrate "With autoApply: false, Dynamo profiled and generated the DGD."
+    narrate "You can review the spec, then manually apply it when ready."
+fi
 
 pause 5
+
+
+# =============================================================================
+# STEP 5+: Deployment — Only when autoApply is true
+# =============================================================================
+if [[ "$AUTO_APPLY" == "false" ]]; then
+    # --- autoApply: false — show the generated DGD and stop ---
+    step_header "📋" "Step 5: Review — Profiling Complete"
+
+    narrate "Profiling is done. The DGD spec has been generated."
+    narrate "With autoApply: false, you review and deploy when ready."
+    echo ""
+
+    pause 2
+
+    if [[ -n "$DGD_NAME" ]]; then
+        show_command "kubectl get dgd ${DGD_NAME} -n ${NAMESPACE} -o yaml"
+        kubectl get dgd "$DGD_NAME" -n "$NAMESPACE" -o yaml 2>/dev/null | head -80 || true
+    else
+        narrate "DGD name not yet available. Check with:"
+        show_command "kubectl get dgdr ${DGDR_NAME} -n ${NAMESPACE} -o jsonpath='{.status.dgdName}'"
+    fi
+
+    pause 3
+
+    echo ""
+    echo -e "   ${BOLD}To deploy manually:${NC}"
+    if [[ -n "$DGD_NAME" ]]; then
+        echo -e "   kubectl patch dgdr ${DGDR_NAME} -n ${NAMESPACE} --type merge -p '{\"spec\":{\"autoApply\":true}}'"
+    fi
+    echo ""
+    echo -e "   ${BOLD}Or apply the DGD directly:${NC}"
+    echo -e "   kubectl get dgdr ${DGDR_NAME} -n ${NAMESPACE} -o jsonpath='{.status.profilingResults.selectedConfig}' | kubectl apply -f -"
+
+    pause 5
+
+    # --- Summary for autoApply: false ---
+    step_header "🎉" "Done — Profiling Complete"
+
+    echo ""
+    echo -e "   What ${BOLD}you${NC} did:"
+    echo ""
+    echo "   1. Wrote a DGDR (model name + SLA targets)"
+    echo "   2. kubectl apply"
+    echo ""
+    echo "   That's it. Two steps."
+
+    pause 3
+
+    echo ""
+    echo -e "   What ${BOLD}Dynamo${NC} did:"
+    echo ""
+    echo "   1. 🔬 Profiled the model on your GPUs"
+    echo "   2. 📋 Generated optimal DGD (TP, PP, replicas, planner curves)"
+    echo "   3. ⏸️  Waiting for your approval to deploy"
+
+    pause 3
+
+    echo ""
+    echo -e "   ${BOLD}Next: review the DGD, then set autoApply: true to deploy. ☕${NC}"
+    echo ""
+    echo -e "   ${DIM}TTFT target: ${TTFT_TARGET}ms  |  ITL target: ${ITL_TARGET}ms  |  Mode: disagg${NC}"
+    echo ""
+
+    if [[ "$DO_CLEANUP" == true ]]; then
+        echo -e "   ${DIM}(DGDR will be cleaned up on exit. Use --no-cleanup to keep it.)${NC}"
+    else
+        echo -e "   ${DIM}(DGDR '${DGDR_NAME}' left in place for further exploration.)${NC}"
+    fi
+
+    echo ""
+    echo "   Learn more: https://github.com/ai-dynamo/dynamo"
+    echo ""
+    exit 0
+fi
 
 
 # =============================================================================
@@ -856,11 +944,6 @@ print()
 fi
 
 pause 2
-
-narrate "You can also use the interactive chat CLI:"
-show_command "python -m dynamo.frontend --interactive"
-
-pause 3
 
 
 # =============================================================================
