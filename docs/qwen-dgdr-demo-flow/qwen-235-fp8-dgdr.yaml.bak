@@ -1,0 +1,28 @@
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeploymentRequest
+metadata:
+  namespace: dynamo-system
+  name: qwen-235-fp8-dgdr
+spec:
+  model: Qwen/Qwen3-235B-A22B-FP8
+  backend: auto
+  searchStrategy: rapid
+  autoApply: false
+  workload:
+    isl: 3000
+    osl: 300
+  sla:
+    ttft: 500
+    itl: 30
+  overrides:
+    profilingJob:
+      template:
+        spec:
+          containers:
+            - name: profiler
+              env:
+                - name: HF_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: hf-token-secret
+                      key: HF_TOKEN

@@ -1,0 +1,22 @@
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeploymentRequest
+metadata:
+  namespace: dynamo-system
+  name: qwen-235-dgdr
+spec:
+  model: Qwen/Qwen3-235B-A22B
+  backend: trtllm
+  searchStrategy: rapid
+  autoApply: false
+  workload:
+    isl: 3000
+    osl: 300
+  sla:
+    ttft: 500
+    itl: 30
+  features:
+    planner:
+      enable_throughput_scaling: true
+      enable_load_scaling: false
+      max_gpu_budget: 32
+      min_endpoint: 1

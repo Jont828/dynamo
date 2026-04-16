@@ -1,0 +1,220 @@
+# This is the working deployment spec!
+# 
+# Adapted from recipes/qwen3-235b-a22b-fp8/trtllm/disagg/deploy.yaml
+# Uses pvc-lustre with pre-cached model
+# TP=4 for both prefill and decode (TP=2 OOMs on H100 80GB)
+# 4x prefill (4 GPU) + 4x decode (4 GPU) = 32 GPUs
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prefill-config
+data:
+  prefill.yaml: |
+    backend: pytorch
+    trust_remote_code: true
+    tensor_parallel_size: 4
+    moe_tensor_parallel_size: 4
+    moe_expert_parallel_size: 1
+    enable_attention_dp: false
+    enable_chunked_prefill: false
+    kv_cache_config:
+      enable_block_reuse: true
+      free_gpu_memory_fraction: 0.7
+      dtype: fp8
+    cache_transceiver_config:
+      backend: DEFAULT
+    cuda_graph_config:
+      enable_padding: true
+      max_batch_size: 2
+    disable_overlap_scheduler: true
+    print_iter_log: false
+    moe_config:
+      max_num_tokens: 8192
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: decode-config
+data:
+  decode.yaml: |
+    backend: pytorch
+    trust_remote_code: true
+    tensor_parallel_size: 4
+    moe_expert_parallel_size: 1
+    moe_tensor_parallel_size: 4
+    enable_attention_dp: false
+    enable_chunked_prefill: false
+    kv_cache_config:
+      enable_block_reuse: false
+      free_gpu_memory_fraction: 0.95
+      dtype: fp8
+    cache_transceiver_config:
+      backend: DEFAULT
+    cuda_graph_config:
+      enable_padding: true
+      max_batch_size: 512
+    disable_overlap_scheduler: false
+    print_iter_log: false
+    moe_config:
+      max_num_tokens: 8192
+---
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  name: qwen3-235b-disagg
+spec:
+  backendFramework: trtllm
+  pvcs:
+    - name: pvc-lustre
+      create: false
+  services:
+    Frontend:
+      componentType: frontend
+      replicas: 1
+      extraPodSpec:
+        tolerations: []
+        mainContainer:
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:1.0.0
+          args:
+            - python3 -m dynamo.frontend --router-mode kv --http-port 8000 --model-name "Qwen/Qwen3-235B-A22B-FP8" --model-path "/model-store/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35"
+          command:
+            - /bin/sh
+            - -c
+          volumeMounts:
+            - name: pvc-lustre
+              mountPath: /model-store
+        volumes:
+          - name: pvc-lustre
+            persistentVolumeClaim:
+              claimName: pvc-lustre
+    TRTLLMPrefillWorker:
+      componentType: worker
+      subComponentType: prefill
+      envFromSecret: hf-token-secret
+      replicas: 4
+      resources:
+        limits:
+          gpu: "4"
+      sharedMemory:
+        size: 256Gi
+      extraPodSpec:
+        tolerations: []
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: nvidia.com/gpu.present
+                  operator: In
+                  values:
+                  - "true"
+        mainContainer:
+          securityContext:
+            capabilities:
+              add:
+                - IPC_LOCK
+          env:
+            - name: MODEL_PATH
+              value: /model-store/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+            - name: HF_HOME
+              value: /model-store
+            - name: ENGINE_ARGS
+              value: /engine_configs/prefill.yaml
+            - name: UCX_TLS
+              value: tcp,cuda_copy,cuda_ipc
+            - name: UCX_NET_DEVICES
+              value: all
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:1.0.0
+          workingDir: /workspace/components/backends/trtllm
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              ulimit -l unlimited 2>/dev/null || true
+              python3 -m dynamo.trtllm \
+                --model-path "${MODEL_PATH}" \
+                --served-model-name "Qwen/Qwen3-235B-A22B-FP8" \
+                --max-batch-size 2 \
+                --max-num-tokens 8192 \
+                --max-seq-len 8192 \
+                --extra-engine-args "${ENGINE_ARGS}" \
+                --disaggregation-mode prefill
+          volumeMounts:
+            - name: prefill-config
+              mountPath: /engine_configs
+            - name: pvc-lustre
+              mountPath: /model-store
+        volumes:
+          - name: prefill-config
+            configMap:
+              name: prefill-config
+          - name: pvc-lustre
+            persistentVolumeClaim:
+              claimName: pvc-lustre
+    TRTLLMDecodeWorker:
+      componentType: worker
+      subComponentType: decode
+      envFromSecret: hf-token-secret
+      replicas: 4
+      resources:
+        limits:
+          gpu: "4"
+      sharedMemory:
+        size: 256Gi
+      extraPodSpec:
+        tolerations: []
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: nvidia.com/gpu.present
+                  operator: In
+                  values:
+                  - "true"
+        mainContainer:
+          securityContext:
+            capabilities:
+              add:
+                - IPC_LOCK
+          env:
+            - name: MODEL_PATH
+              value: /model-store/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+            - name: HF_HOME
+              value: /model-store
+            - name: ENGINE_ARGS
+              value: /engine_configs/decode.yaml
+            - name: UCX_TLS
+              value: tcp,cuda_copy,cuda_ipc
+            - name: UCX_NET_DEVICES
+              value: all
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:1.0.0
+          workingDir: /workspace/components/backends/trtllm
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              ulimit -l unlimited 2>/dev/null || true
+              python3 -m dynamo.trtllm \
+                --model-path "${MODEL_PATH}" \
+                --served-model-name "Qwen/Qwen3-235B-A22B-FP8" \
+                --max-batch-size 512 \
+                --max-num-tokens 1024 \
+                --max-seq-len 8192 \
+                --extra-engine-args "${ENGINE_ARGS}" \
+                --disaggregation-mode decode
+          volumeMounts:
+            - name: decode-config
+              mountPath: /engine_configs
+            - name: pvc-lustre
+              mountPath: /model-store
+        volumes:
+          - name: decode-config
+            configMap:
+              name: decode-config
+          - name: pvc-lustre
+            persistentVolumeClaim:
+              claimName: pvc-lustre

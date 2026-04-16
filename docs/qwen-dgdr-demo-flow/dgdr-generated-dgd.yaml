@@ -1,0 +1,133 @@
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  name: trtllm-disagg
+spec:
+  pvcs:
+  - create: false
+    name: pvc-lustre
+    size: '0'
+  services:
+    Frontend:
+      componentType: frontend
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --model-name
+          - Qwen/Qwen3-235B-A22B-FP8
+          - --model-path
+          - /model-store/model-store/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+          command:
+          - python3
+          - -m
+          - dynamo.frontend
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:1.0.0
+          name: ''
+          resources: {}
+      replicas: 1
+      volumeMounts:
+      - mountPoint: /model-store
+        name: pvc-lustre
+    TRTLLMDecodeWorker:
+      componentType: worker
+      envFromSecret: hf-token-secret
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --model-path
+          - /model-store/model-store/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+          - --served-model-name
+          - Qwen/Qwen3-235B-A22B-FP8
+          - --tensor-parallel-size
+          - '8'
+          - --pipeline-parallel-size
+          - '1'
+          - --expert-parallel-size
+          - '8'
+          - --max-batch-size
+          - '512'
+          - --max-num-tokens
+          - '512'
+          - --override-engine-args
+          - '{"cache_transceiver_config": {"max_tokens_in_buffer": 4800}, "disable_overlap_scheduler":
+            false, "kv_cache_config": {"dtype": "fp8", "tokens_per_block": 32}}'
+          command:
+          - python3
+          - -m
+          - dynamo.trtllm
+          env:
+          - name: UCX_TLS
+            value: tcp,cuda_copy,cuda_ipc
+          - name: UCX_NET_DEVICES
+            value: all
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:1.0.0
+          name: ''
+          resources: {}
+          securityContext:
+            capabilities:
+              add:
+              - IPC_LOCK
+          workingDir: /workspace/
+      replicas: 2
+      resources:
+        limits:
+          gpu: '8'
+      sharedMemory:
+        size: 256Gi
+      subComponentType: decode
+      volumeMounts:
+      - mountPoint: /model-store
+        name: pvc-lustre
+    TRTLLMPrefillWorker:
+      componentType: worker
+      envFromSecret: hf-token-secret
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --model-path
+          - /model-store/model-store/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+          - --served-model-name
+          - Qwen/Qwen3-235B-A22B-FP8
+          - --tensor-parallel-size
+          - '4'
+          - --pipeline-parallel-size
+          - '1'
+          - --expert-parallel-size
+          - '4'
+          - --max-batch-size
+          - '1'
+          - --max-num-tokens
+          - '4512'
+          - --override-engine-args
+          - '{"cache_transceiver_config": {"max_tokens_in_buffer": 4800}, "disable_overlap_scheduler":
+            true, "kv_cache_config": {"dtype": "fp8", "tokens_per_block": 32}}'
+          command:
+          - python3
+          - -m
+          - dynamo.trtllm
+          env:
+          - name: UCX_TLS
+            value: tcp,cuda_copy,cuda_ipc
+          - name: UCX_NET_DEVICES
+            value: all
+          image: nvcr.io/nvidia/ai-dynamo/tensorrtllm-runtime:1.0.0
+          name: ''
+          resources: {}
+          securityContext:
+            capabilities:
+              add:
+              - IPC_LOCK
+          workingDir: /workspace/
+      replicas: 4
+      resources:
+        limits:
+          gpu: '4'
+      sharedMemory:
+        size: 256Gi
+      subComponentType: prefill
+      volumeMounts:
+      - mountPoint: /model-store
+        name: pvc-lustre
+status:
+  state: ''
+
