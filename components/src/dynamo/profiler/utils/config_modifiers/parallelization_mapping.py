@@ -120,7 +120,7 @@ class PickedParallelConfig:
 
     @property
     def num_gpus(self) -> int:
-        return self.tp * self.pp * self.dp
+        return self.tp * self.pp
 
     @property
     def tp_size(self) -> int:

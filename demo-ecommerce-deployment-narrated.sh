@@ -42,11 +42,20 @@ AUTO_APPLY="${AUTO_APPLY:-true}"
 DO_CLEANUP=true
 PORT_FORWARD_PORT=8000
 
+# Neofetch-style cluster info display (shown after banner if non-empty).
+# Each entry is "Key: Value". Add, remove, or reorder freely.
+# Pass --cluster-info "Key: Value" repeatedly to build the list from CLI,
+# or set this array directly in the script.
+# NOTE: Rebuilt after argument parsing so --model/--dgdr-file values are reflected.
+CLUSTER_FETCH_TEMPLATE=true
+CLUSTER_FETCH_EXTRA=()
+
 # Model cache PVC configuration
 PVC_NAME="${PVC_NAME:-model-cache}"
 PVC_MOUNT_PATH="${PVC_MOUNT_PATH:-/home/dynamo/.cache/huggingface}"
 PVC_MODEL_PATH="${PVC_MODEL_PATH:-hub/models--Qwen--Qwen3-32B/snapshots/9216db5781bf21249d130ec9da846c4624c16137}"
 DGDR_IMAGE="${DGDR_IMAGE:-}"
+DGDR_FILE=""
 
 # Colors and styles
 RED='\033[0;31m'
@@ -55,6 +64,7 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 WHITE='\033[1;37m'
+BLUE='\033[1;34m'
 BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
@@ -78,6 +88,8 @@ while [[ $# -gt 0 ]]; do
         --pvc-mount-path)  PVC_MOUNT_PATH="$2"; shift 2 ;;
         --pvc-model-path)  PVC_MODEL_PATH="$2"; shift 2 ;;
         --image)           DGDR_IMAGE="$2"; shift 2 ;;
+        --dgdr-file)       DGDR_FILE="$2"; shift 2 ;;
+        --cluster-info)    CLUSTER_FETCH_EXTRA+=("$2"); CLUSTER_FETCH_TEMPLATE=false; shift 2 ;;
         --no-cleanup)      DO_CLEANUP=false; shift ;;
         --auto-apply)      AUTO_APPLY=true; shift ;;
         --no-auto-apply)   AUTO_APPLY=false; shift ;;
@@ -97,8 +109,15 @@ while [[ $# -gt 0 ]]; do
             echo "  --pvc-name NAME    PVC name for model cache (default: model-cache)"
             echo "  --pvc-mount-path P Mount path for model cache PVC (default: /home/dynamo/.cache/huggingface)"
             echo "  --pvc-model-path P Relative model path inside PVC (default: hub/models--Qwen--Qwen3-32B/snapshots/...)"
+            echo "  --image IMAGE      Container image override for DGDR"
+            echo "  --dgdr-file FILE   Use a pre-built DGDR YAML file instead of constructing one."
+            echo "                       Overrides --model, --backend, --dgdr-name, --pvc-*, etc."
+            echo "                       The script extracts metadata.name and spec.model from the file."
             echo "  --auto-apply       Auto-deploy after profiling (default)"
             echo "  --no-auto-apply    Skip auto-deploy; profiling only"
+            echo "  --cluster-info STR Neofetch info line (repeatable). e.g.:"
+            echo "                       --cluster-info 'Platform: Azure AKS'"
+            echo "                       --cluster-info 'GPUs: 32× H100 80GB'"
             echo "  --no-cleanup       Don't delete DGDR on exit"
             exit 0
             ;;
@@ -181,7 +200,32 @@ fi
 # =============================================================================
 # DGDR YAML
 # =============================================================================
-DGDR_YAML="apiVersion: nvidia.com/v1beta1
+if [[ -n "$DGDR_FILE" ]]; then
+    if [[ ! -f "$DGDR_FILE" ]]; then
+        echo -e "${RED}Error: DGDR file not found: ${DGDR_FILE}${NC}"
+        exit 1
+    fi
+    DGDR_YAML="$(cat "$DGDR_FILE")"
+    # Extract metadata.name and spec.model from the file for display/cleanup
+    DGDR_NAME=$(python3 -c "
+import yaml, sys
+doc = yaml.safe_load(sys.stdin)
+print(doc.get('metadata',{}).get('name',''))
+" <<< "$DGDR_YAML")
+    MODEL=$(python3 -c "
+import yaml, sys
+doc = yaml.safe_load(sys.stdin)
+print(doc.get('spec',{}).get('model',''))
+" <<< "$DGDR_YAML")
+    BACKEND=$(python3 -c "
+import yaml, sys
+doc = yaml.safe_load(sys.stdin)
+print(doc.get('spec',{}).get('backend',''))
+" <<< "$DGDR_YAML")
+    echo -e "${DIM}# Using DGDR from file: ${DGDR_FILE}${NC}"
+    echo -e "${DIM}#   name=${DGDR_NAME}  model=${MODEL}  backend=${BACKEND}${NC}"
+else
+    DGDR_YAML="apiVersion: nvidia.com/v1beta1
 kind: DynamoGraphDeploymentRequest
 metadata:
   name: ${DGDR_NAME}
@@ -194,7 +238,7 @@ spec:
   backend: ${BACKEND}
   searchStrategy: rapid
   autoApply: ${AUTO_APPLY}
-$( [[ -n "$DGDR_IMAGE" ]] && echo "  image: ${DGDR_IMAGE}" )
+$( [[ -n "$DGDR_IMAGE" ]] && echo "  image: ${DGDR_IMAGE}" || true )
 
   modelCache:
     pvcName: ${PVC_NAME}
@@ -215,6 +259,26 @@ $( [[ -n "$DGDR_IMAGE" ]] && echo "  image: ${DGDR_IMAGE}" )
       enable_load_scaling: true
       max_gpu_budget: 32
       mode: disagg"
+fi
+
+# Rebuild CLUSTER_FETCH now that MODEL/BACKEND are finalized (--dgdr-file may have changed them)
+if [[ "$CLUSTER_FETCH_TEMPLATE" == true ]]; then
+    CLUSTER_FETCH=(
+        "dynamo@aks-ndh100-cluster"
+        "---"
+        "Model: ${MODEL}"
+        "Platform: Azure Kubernetes Service (AKS)"
+        "K8s: v1.31 · NVIDIA GPU Operator"
+        "Nodes: 4× Standard_ND_H100_v5"
+        "GPUs: 32× NVIDIA H100 80GB SXM"
+        "VRAM: 2,560 GB total"
+        "Storage: Azure Managed Lustre (AMLFS)"
+        "Backend: ${BACKEND} (disaggregated prefill/decode)"
+        "SLA: TTFT ≤ ${TTFT_TARGET}ms · ITL ≤ ${ITL_TARGET}ms"
+    )
+else
+    CLUSTER_FETCH=("${CLUSTER_FETCH_EXTRA[@]}")
+fi
 
 # =============================================================================
 # BANNER
@@ -227,6 +291,81 @@ echo -e "${CYAN}║${NC}                                                        
 echo -e "${CYAN}║${NC}     ${MAGENTA}kubectl apply → Go make coffee → It's live${NC}                 ${CYAN}║${NC}"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
+
+# =============================================================================
+# Neofetch-style cluster info (optional)
+# =============================================================================
+if [[ ${#CLUSTER_FETCH[@]} -gt 0 ]]; then
+    pause 2
+
+    # Azure logo with 256-color escapes (each line is 34 visible chars)
+    LOGO_LINES=(
+        "                                  "
+        $'\033[38;5;25m          ,gp\033[38;5;45m9@@@B>"\033[38;5;81mgGg           \033[0m'
+        $'\033[38;5;25m          @@@\\\033[38;5;81m~@g@@@@@@A          \033[0m'
+        $'\033[38;5;25m         g@@@@\033[38;5;81m\'@@@@B>"\033[38;5;74m_~,         \033[0m'
+        $'\033[38;5;25m        /@@@@@@\033[38;5;81m"\033[38;5;38m~\033[38;5;74m_g@@@@@@         \033[0m'
+        $'\033[38;5;25m        @@@@@@@p\033[38;5;74m@@@@@@@@@@        \033[0m'
+        $'\033[38;5;25m       @@@@@@@@@,\033[38;5;74m@@@@@@@@@\\       \033[0m'
+        $'\033[38;5;25m      {@@@@@@@@@ \033[38;5;74m\'@@@@P"\033[38;5;39m~@@       \033[0m'
+        $'\033[38;5;25m     ,@@@@@@@@@\'  \033[38;5;39m,g@@@@@@@@      \033[0m'
+        $'\033[38;5;25m     @@@@@@@@@F    \033[38;5;39m@@@@@@@@@A     \033[0m'
+        $'\033[38;5;25m    g@@@@B\033[38;5;32m%@@@@@@l\033[38;5;25m@\033[38;5;39m\'@@@@@@@P"\033[38;5;6m,    \033[0m'
+        $'\033[38;5;25m   ;@@@@@@@g\033[38;5;32m<@@@@@\033[38;5;25m\'@\033[38;5;39mTB>\033[38;5;6m_g@@@@@    \033[0m'
+        $'\033[38;5;25m   @@@@@@@@@? \033[38;5;32m"@@@@\033[38;5;25mVg\033[38;5;6m@@@@@@@@@@   \033[0m'
+        $'\033[38;5;25m  @@@@@@@@@W    \033[38;5;32m`Q@h\033[38;5;25m@,\033[38;5;6m@@@@@@@@@\\  \033[0m'
+        $'\033[38;5;25m  8BBBBBBBD        \033[38;5;32m%.\033[38;5;25mF\033[38;5;6mBBBBBBBBBP  \033[0m'
+        "                                  "
+    )
+    LOGO_WIDTH=34
+
+    # Render: logo on left, info on right
+    local_logo_count=${#LOGO_LINES[@]}
+    local_info_count=${#CLUSTER_FETCH[@]}
+    # Info starts a few lines down to vertically center against the logo
+    local_info_offset=2
+    local_max=$((local_logo_count > (local_info_count + local_info_offset) ? local_logo_count : (local_info_count + local_info_offset)))
+
+    echo ""
+    for ((i=0; i<local_max; i++)); do
+        # Left side: logo line (or blank padding)
+        if [[ $i -lt $local_logo_count ]]; then
+            logo_line="${LOGO_LINES[$i]}"
+        else
+            logo_line="$(printf '%*s' "$LOGO_WIDTH" '')"
+        fi
+
+        # Right side: info line (offset down to center)
+        local_info_idx=$((i - local_info_offset))
+        if [[ $local_info_idx -ge 0 && $local_info_idx -lt $local_info_count ]]; then
+            info="${CLUSTER_FETCH[$local_info_idx]}"
+            if [[ "$info" == "---" ]]; then
+                info_formatted="${DIM}────────────────────────────────────────────────────${NC}"
+            elif [[ "$info" == *"@"* && "$local_info_idx" -eq 0 ]]; then
+                # Title line: neofetch-style user@host in bold blue
+                local_user="${info%%@*}"
+                local_host="${info#*@}"
+                info_formatted="${BLUE}${local_user}${NC}@${BLUE}${local_host}${NC}"
+            elif [[ "$info" == *": "* ]]; then
+                info_key="${info%%: *}"
+                info_val="${info#*: }"
+                info_formatted="${BLUE}${info_key}${NC}: ${info_val}"
+            else
+                info_formatted="${BOLD}${WHITE}${info}${NC}"
+            fi
+        else
+            info_formatted=""
+        fi
+
+        printf "   "
+        echo -e -n "$logo_line"
+        printf "  "
+        echo -e "$info_formatted"
+    done
+    echo ""
+
+    pause 4
+fi
 
 pause 3
 
