@@ -141,3 +141,23 @@ End-to-end verified with DGDR deployment on AKS cluster (32x H100 SXM):
 All MoE models are affected when using `searchStrategy: rapid` **with planner features
 enabled**. Without planner features, profiling succeeds because interpolation is skipped.
 Dense models are unaffected.
+
+### Building a Custom Frontend Image with Fixes
+
+To build a frontend image that includes these bug fixes, render the Dockerfile and build
+with a custom tag. The default EPP image is hosted on a staging registry that may not be
+publicly accessible, so override it with the public `registry.k8s.io` mirror:
+
+```bash
+# Render the frontend Dockerfile
+python container/render.py --framework dynamo --target frontend
+
+# Build with the public EPP image registry
+docker build \
+  -f container/dynamo-frontend-cuda12.9-amd64-rendered.Dockerfile \
+  --build-arg EPP_IMAGE=registry.k8s.io/gateway-api-inference-extension/epp:v0.5.1 \
+  -t <your-registry>/dynamo-frontend:<your-tag> .
+
+# Push to your registry
+docker push <your-registry>/dynamo-frontend:<your-tag>
+```

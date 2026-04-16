@@ -264,16 +264,16 @@ fi
 # Rebuild CLUSTER_FETCH now that MODEL/BACKEND are finalized (--dgdr-file may have changed them)
 if [[ "$CLUSTER_FETCH_TEMPLATE" == true ]]; then
     CLUSTER_FETCH=(
-        "dynamo@aks-ndh100-cluster"
+        "Dynamo on AKS Cluster"
         "---"
         "Model: ${MODEL}"
         "Platform: Azure Kubernetes Service (AKS)"
-        "K8s: v1.31 · NVIDIA GPU Operator"
-        "Nodes: 4× Standard_ND_H100_v5"
-        "GPUs: 32× NVIDIA H100 80GB SXM"
+        "K8s: v1.34.4"
+        "Nodes: 4 × Standard_ND_H100_v5"
+        "GPUs: 32 × NVIDIA H100 80GB SXM"
         "VRAM: 2,560 GB total"
         "Storage: Azure Managed Lustre (AMLFS)"
-        "Backend: ${BACKEND} (disaggregated prefill/decode)"
+        "Backend: ${BACKEND}"
         "SLA: TTFT ≤ ${TTFT_TARGET}ms · ITL ≤ ${ITL_TARGET}ms"
     )
 else
