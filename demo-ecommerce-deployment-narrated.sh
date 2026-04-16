@@ -215,6 +215,26 @@ $( [[ -n "$DGDR_IMAGE" ]] && echo "  image: ${DGDR_IMAGE}" )
       enable_load_scaling: true
       max_gpu_budget: 32
       mode: disagg"
+fi
+
+# Rebuild CLUSTER_FETCH now that MODEL/BACKEND are finalized (--dgdr-file may have changed them)
+if [[ "$CLUSTER_FETCH_TEMPLATE" == true ]]; then
+    CLUSTER_FETCH=(
+        "Dynamo on AKS Cluster"
+        "---"
+        "Model: ${MODEL}"
+        "Platform: Azure Kubernetes Service (AKS)"
+        "K8s: v1.34.4"
+        "Nodes: 4 × Standard_ND_H100_v5"
+        "GPUs: 32 × NVIDIA H100 80GB SXM"
+        "VRAM: 2,560 GB total"
+        "Storage: Azure Managed Lustre (AMLFS)"
+        "Backend: ${BACKEND}"
+        "SLA: TTFT ≤ ${TTFT_TARGET}ms · ITL ≤ ${ITL_TARGET}ms"
+    )
+else
+    CLUSTER_FETCH=("${CLUSTER_FETCH_EXTRA[@]}")
+fi
 
 # =============================================================================
 # BANNER
