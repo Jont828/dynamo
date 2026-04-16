@@ -65,7 +65,7 @@ spec:
   autoApply: true
 
   # Profiler/frontend image —  should automatically use nvcr image for v1.0.1
-  # image: 
+  image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:1.0.1
 
   # Pre-cached model on Azure Lustre
   modelCache:

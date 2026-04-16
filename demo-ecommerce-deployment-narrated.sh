@@ -338,25 +338,23 @@ PROFILING_MAX_WAIT=900
 profiling_elapsed=0
 last_profiling_phase=""
 profiler_pod=""
-profiling_first_iteration=true
-
-# Save cursor position — everything below this refreshes in-place
-tput sc
+_watch_first_iteration=true
 
 while [[ $profiling_elapsed -lt $PROFILING_MAX_WAIT ]]; do
     phase=$(kubectl get dgdr "$DGDR_NAME" -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Pending")
     profiling_phase=$(kubectl get dgdr "$DGDR_NAME" -n "$NAMESPACE" -o jsonpath='{.status.profilingPhase}' 2>/dev/null || echo "")
 
-    # On subsequent iterations, restore cursor and clear to redraw in-place
-    if [[ "$profiling_first_iteration" != true ]]; then
-        tput rc
-        tput ed
+    # Clear screen and redraw (watch style)
+    if [[ "$_watch_first_iteration" != true ]]; then
+        printf '\e[H\e[2J'
     fi
-    profiling_first_iteration=false
+    _watch_first_iteration=false
+
+    echo -e "${BOLD}  🔬 Step 3: Profiling — Dynamo Finds the Optimal Config${NC}"
+    echo -e "  ${DIM}Every 5s · ${profiling_elapsed}s elapsed${NC}"
+    echo ""
 
     # --- Watch header ---
-    echo -e "   ${DIM}Every 5s: kubectl get dgdr  (${profiling_elapsed}s elapsed)${NC}"
-    echo ""
 
     # Show the DGDR table
     show_command "kubectl get dgdr ${DGDR_NAME} -n ${NAMESPACE}"
@@ -654,7 +652,7 @@ pause 3
 
 # ---------------------------------------------------------------------------
 # Watch DGDR phase transition through Deploying -> Deployed
-# Uses tput sc/rc/ed for in-place refresh (top/htop style)
+# Uses clear-screen for in-place refresh (watch style)
 # ---------------------------------------------------------------------------
 DEPLOY_MAX_WAIT=900
 deploy_elapsed=0
@@ -664,22 +662,20 @@ if [[ -z "$DGD_NAME" ]]; then
     DGD_NAME=$(kubectl get dgdr "$DGDR_NAME" -n "$NAMESPACE" -o jsonpath='{.status.dgdName}' 2>/dev/null || echo "")
 fi
 
-# Save cursor position — everything below this refreshes in-place
-tput sc
-deploy_first_iteration=true
+# Clear screen for watch-style refresh
+_deploy_first_iteration=true
 
 while [[ $deploy_elapsed -lt $DEPLOY_MAX_WAIT ]]; do
     dgdr_phase=$(kubectl get dgdr "$DGDR_NAME" -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 
-    # On subsequent iterations, restore cursor and clear to redraw in-place
-    if [[ "$deploy_first_iteration" != true ]]; then
-        tput rc
-        tput ed
+    # Clear screen and redraw (watch style)
+    if [[ "$_deploy_first_iteration" != true ]]; then
+        printf '\e[H\e[2J'
     fi
-    deploy_first_iteration=false
+    _deploy_first_iteration=false
 
-    # --- Watch header ---
-    echo -e "   ${DIM}Every 5s: kubectl get dgdr,dgd,pods  (${deploy_elapsed}s elapsed)${NC}"
+    echo -e "${BOLD}  🚀 Step 5: Deployment — Watching Workers Come Online${NC}"
+    echo -e "  ${DIM}Every 5s · ${deploy_elapsed}s elapsed${NC}"
     echo ""
 
     # --- DGDR status ---
@@ -735,11 +731,20 @@ while [[ $deploy_elapsed -lt $DEPLOY_MAX_WAIT ]]; do
             # Sample one not-ready worker pod for loading progress
             sample_pod=$(echo "$pod_output" | grep -iE "worker|decode|prefill" | grep "0/1" | head -1 | awk '{print $1}')
             if [[ -n "$sample_pod" ]]; then
-                shard_line=$(kubectl logs "$sample_pod" -n "$NAMESPACE" --tail=10 2>/dev/null \
-                    | grep -iE "Loading.*safetensor|Loading.*checkpoint|shard|Completed" | tail -1 || true)
+                # Grab more log lines to find the slow progress line
+                # TRT-LLM logs interleave fast per-rank safetensors (48/48 instantly)
+                # with slow overall weight loading (0/2452 concurrently)
+                shard_line=$(kubectl logs "$sample_pod" -n "$NAMESPACE" --tail=50 2>/dev/null \
+                    | grep -iE "Loading weights concurrently|Loading.*model.*weight|Loading.*checkpoint" | tail -1 || true)
+                # Fallback to any loading line if the specific one isn't found
+                if [[ -z "$shard_line" ]]; then
+                    shard_line=$(kubectl logs "$sample_pod" -n "$NAMESPACE" --tail=50 2>/dev/null \
+                        | grep -iE "Loading.*safetensor|shard|Completed" | tail -1 || true)
+                fi
                 if [[ -n "$shard_line" ]]; then
-                    # Extract shard progress: "6% Completed | 1/17" or "1/17 [00:04..."
-                    shard_pct=$(echo "$shard_line" | grep -oP '\d+(?=%)' | tail -1 || echo "")
+                    # Extract progress from tqdm format: "  5%|▌  | 123/2452 [00:10<02:30]"
+                    # Use head -1 to get the first (overall) percentage, not a sub-progress
+                    shard_pct=$(echo "$shard_line" | grep -oP '\d+(?=%)' | head -1 || echo "")
                     shard_frac=$(echo "$shard_line" | grep -oP '\d+/\d+' | head -1 || echo "")
                     pct="${shard_pct:-0}"
                     if [[ "$pct" -gt 0 ]] 2>/dev/null; then
