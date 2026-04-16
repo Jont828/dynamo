@@ -1,0 +1,208 @@
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  annotations:
+    nvidia.com/current-worker-hash: 89066b71
+    nvidia.com/dynamo-operator-origin-version: 1.0.1
+  creationTimestamp: "2026-04-16T01:07:56Z"
+  finalizers:
+  - nvidia.com/finalizer
+  generation: 1
+  labels:
+    dgdr.nvidia.com/name: qwen3-235b-fp8-disagg
+    dgdr.nvidia.com/namespace: dynamo-system
+    nvidia.com/managed-by: dynamo-operator
+  name: trtllm-disagg
+  namespace: dynamo-system
+  resourceVersion: "1357904"
+  uid: 05595c76-4156-4d46-a8dc-3a4836f2479e
+spec:
+  pvcs:
+  - create: false
+    name: pvc-lustre
+    size: "0"
+  services:
+    Frontend:
+      componentType: frontend
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --model-name
+          - Qwen/Qwen3-235B-A22B-FP8
+          - --model-path
+          - /model-store/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+          command:
+          - python3
+          - -m
+          - dynamo.frontend
+          image: jont828/tensorrtllm-runtime:moe-fix
+          name: ""
+          resources: {}
+      replicas: 1
+      volumeMounts:
+      - mountPoint: /model-store
+        name: pvc-lustre
+        useAsCompilationCache: false
+    Planner:
+      componentType: planner
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --config
+          - /workspace/planner_config/planner_config.json
+          command:
+          - python3
+          - -m
+          - dynamo.planner
+          image: jont828/dynamo-frontend:moe-fix
+          name: ""
+          resources: {}
+          volumeMounts:
+          - mountPath: /workspace/planner_config
+            name: planner-config-51ef
+            readOnly: true
+          - mountPath: /workspace/profiling_results
+            name: planner-profile-data-2ca1
+            readOnly: true
+          workingDir: /workspace/components/src/dynamo/planner
+        volumes:
+        - configMap:
+            name: planner-config-51ef
+          name: planner-config-51ef
+        - configMap:
+            name: planner-profile-data-2ca1
+          name: planner-profile-data-2ca1
+      replicas: 1
+    TRTLLMDecodeWorker:
+      componentType: worker
+      envFromSecret: hf-token-secret
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --model-path
+          - /model-store/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+          - --served-model-name
+          - Qwen/Qwen3-235B-A22B-FP8
+          - --tensor-parallel-size
+          - "8"
+          - --pipeline-parallel-size
+          - "1"
+          - --expert-parallel-size
+          - "4"
+          - --enable-attention-dp
+          - --max-batch-size
+          - "512"
+          - --max-num-tokens
+          - "512"
+          - --override-engine-args
+          - '{"cache_transceiver_config": {"max_tokens_in_buffer": 4800}, "disable_overlap_scheduler":
+            false, "kv_cache_config": {"dtype": "fp8", "tokens_per_block": 32}}'
+          command:
+          - python3
+          - -m
+          - dynamo.trtllm
+          image: jont828/tensorrtllm-runtime:moe-fix
+          name: ""
+          resources: {}
+          workingDir: /workspace/
+      replicas: 2
+      resources:
+        limits:
+          gpu: "64"
+      sharedMemory:
+        size: 256Gi
+      subComponentType: decode
+      volumeMounts:
+      - mountPoint: /model-store
+        name: pvc-lustre
+        useAsCompilationCache: false
+    TRTLLMPrefillWorker:
+      componentType: worker
+      envFromSecret: hf-token-secret
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --model-path
+          - /model-store/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+          - --served-model-name
+          - Qwen/Qwen3-235B-A22B-FP8
+          - --tensor-parallel-size
+          - "8"
+          - --pipeline-parallel-size
+          - "1"
+          - --expert-parallel-size
+          - "8"
+          - --max-batch-size
+          - "1"
+          - --max-num-tokens
+          - "4512"
+          - --override-engine-args
+          - '{"cache_transceiver_config": {"max_tokens_in_buffer": 4800}, "disable_overlap_scheduler":
+            true, "kv_cache_config": {"dtype": "fp8", "tokens_per_block": 32}}'
+          command:
+          - python3
+          - -m
+          - dynamo.trtllm
+          image: jont828/tensorrtllm-runtime:moe-fix
+          name: ""
+          resources: {}
+          workingDir: /workspace/
+      replicas: 2
+      resources:
+        limits:
+          gpu: "8"
+      sharedMemory:
+        size: 256Gi
+      subComponentType: prefill
+      volumeMounts:
+      - mountPoint: /model-store
+        name: pvc-lustre
+        useAsCompilationCache: false
+status:
+  conditions:
+  - lastTransitionTime: "2026-04-16T01:09:33Z"
+    message: 'Resources not ready: trtllm-disagg-trtllmdecodeworker-89066b71: Component
+      deployment not ready - Available condition not true; trtllm-disagg-trtllmprefillworker-89066b71:
+      Component deployment not ready - Available condition not true'
+    reason: some_resources_are_not_ready
+    status: "False"
+    type: Ready
+  observedGeneration: 1
+  services:
+    Frontend:
+      availableReplicas: 1
+      componentKind: Deployment
+      componentName: trtllm-disagg-frontend
+      componentNames:
+      - trtllm-disagg-frontend
+      readyReplicas: 1
+      replicas: 1
+      updatedReplicas: 1
+    Planner:
+      availableReplicas: 1
+      componentKind: Deployment
+      componentName: trtllm-disagg-planner
+      componentNames:
+      - trtllm-disagg-planner
+      readyReplicas: 1
+      replicas: 1
+      updatedReplicas: 1
+    TRTLLMDecodeWorker:
+      availableReplicas: 0
+      componentKind: Deployment
+      componentName: trtllm-disagg-trtllmdecodeworker-89066b71
+      componentNames:
+      - trtllm-disagg-trtllmdecodeworker-89066b71
+      readyReplicas: 0
+      replicas: 2
+      updatedReplicas: 2
+    TRTLLMPrefillWorker:
+      availableReplicas: 0
+      componentKind: Deployment
+      componentName: trtllm-disagg-trtllmprefillworker-89066b71
+      componentNames:
+      - trtllm-disagg-trtllmprefillworker-89066b71
+      readyReplicas: 0
+      replicas: 2
+      updatedReplicas: 2
+  state: pending

@@ -1,0 +1,10 @@
+# Minimal patch on top of dynamo-frontend:1.0.1 — only MoE profiling fixes
+# Patches interpolation.py and profile_decode.py into site-packages
+# No template overrides, no config_modifier changes
+FROM nvcr.io/nvidia/ai-dynamo/dynamo-frontend:1.0.1
+
+COPY components/src/dynamo/profiler/interpolation.py \
+     /opt/dynamo/venv/lib/python3.12/site-packages/dynamo/profiler/interpolation.py
+
+COPY components/src/dynamo/profiler/utils/profile_decode.py \
+     /opt/dynamo/venv/lib/python3.12/site-packages/dynamo/profiler/utils/profile_decode.py
