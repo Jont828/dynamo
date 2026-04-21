@@ -72,16 +72,20 @@ RUN --mount=type=cache,target=/home/dynamo/.cache/uv,uid=1000,gid=0,mode=0775 \
     mkdir -p /opt/dynamo/venv && \
     uv venv /opt/dynamo/venv --python $PYTHON_VERSION
 
-# Install runtime dependencies (common + frontend).
+# Install runtime dependencies (common + frontend + planner).
 # Frontend needs tritonclient and its grpcio/protobuf constraints for gRPC serving.
+# Planner/profiler deps are included because the DGDR operator uses the frontend
+# image to run profiling jobs (which need kubernetes_asyncio, aiconfigurator, etc.).
 # Test and dev dependencies are NOT installed here — they go in the test and dev images.
 RUN --mount=type=bind,source=./container/deps/requirements.common.txt,target=/tmp/requirements.common.txt \
     --mount=type=bind,source=./container/deps/requirements.frontend.txt,target=/tmp/requirements.frontend.txt \
+    --mount=type=bind,source=./container/deps/requirements.planner.txt,target=/tmp/requirements.planner.txt \
     --mount=type=cache,target=/home/dynamo/.cache/uv,uid=1000,gid=0,mode=0775 \
     export UV_CACHE_DIR=/home/dynamo/.cache/uv UV_GIT_LFS=1 UV_HTTP_TIMEOUT=300 UV_HTTP_RETRIES=5 && \
     uv pip install \
         --requirement /tmp/requirements.common.txt \
-        --requirement /tmp/requirements.frontend.txt
+        --requirement /tmp/requirements.frontend.txt \
+        --requirement /tmp/requirements.planner.txt
 
 ARG ENABLE_KVBM
 ARG ENABLE_GPU_MEMORY_SERVICE
