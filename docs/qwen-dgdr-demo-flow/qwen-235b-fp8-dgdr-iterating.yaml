@@ -1,0 +1,138 @@
+# DGDR for Qwen3-235B-A22B-FP8 Disaggregated TRT-LLM Deployment
+# Goal: iterate on this until the DGDR -> DGD flow produces a working deployment
+#
+# === Override Mechanism ===
+# The profiler Python code (profile_sla.py) calls apply_dgd_overrides() which
+# deep-merges overrides.dgd into the profiler-generated DGD before writing the
+# output ConfigMap. The operator then reads this merged output. So overrides DO
+# take effect — they are applied by the profiler, not the operator.
+#
+# The merge rules (from protocol.py _deep_merge_overrides):
+#   - Dicts are merged recursively
+#   - Worker args (extraPodSpec.mainContainer.args) are APPENDED
+#   - Services that don't exist in the generated DGD are SKIPPED with a warning
+#   - All other leaf values REPLACE the target value
+#   - apiVersion, kind, metadata.name are stripped (envelope fields)
+#
+# === InfiniBand / RDMA Status ===
+# As of 2026-04-16, the cluster has InfiniBand fully working:
+#   - ib_umad loaded, RLIMIT_MEMLOCK=unlimited (via ib-node-config DaemonSet)
+#   - RDMA devices exposed to pods (via rdma-shared-dp-ds DaemonSet)
+#   - UCX_TLS workaround NO LONGER NEEDED — UCX auto-detects IB verbs
+#   - IPC_LOCK capability NO LONGER NEEDED — mlock() works without it because
+#     RLIMIT_MEMLOCK=unlimited is set at the kubelet level. IPC_LOCK only
+#     bypasses the rlimit check; with unlimited rlimit, the check passes on
+#     its own. Verified with uid=1000 (non-root) and zero effective capabilities.
+#   - See aks-infiniband-rdma-setup.md for details
+#
+# === What's Covered vs What's Not ===
+#
+# COVERED by overrides.dgd (will merge correctly):
+#   ✅ sharedMemory.size: 256Gi — merges into each service
+#   ✅ Planner removal — just omit features.planner from DGDR spec
+#   ✅ Frontend model-path/PVC — handled by modelCache fields + profiler generator
+#
+# NOT COVERED (profiler must get these right on its own):
+#   ❌ TP sizing — profiler/AIC sim chooses TP. hardware.vramMb should guide it
+#      but we can't force TP=4 via overrides. Last run picked TP=4 prefill (ok)
+#      and TP=8 decode (ok but triggered multinode bug)
+#   ❌ DeepGEMM removal — profiler generates inline --override-engine-args JSON.
+#      If it injects backend:DEEPGEMM, overrides can't strip it (merge is additive)
+#   ❌ Multinode removal — if profiler sets multinode.nodeCount, overrides can't
+#      remove the field (deep-merge doesn't support null-as-delete)
+#
+# === Remaining Risks ===
+# 1. If profiler picks TP=2 for any worker → CUDA OOM (need TP>=4 on H100 80GB)
+# 2. If profiler injects DeepGEMM MoE backend → assertion failure with FP8
+# 3. If profiler sets multinode.nodeCount on decode → requires Grove
+#
+# Service names must match profiler output:
+#   TRT-LLM disagg: TRTLLMPrefillWorker, TRTLLMDecodeWorker, Frontend
+#   (confirmed from examples/backends/trtllm/deploy/disagg.yaml template)
+#
+# Cluster: AKS with 4x ND96isr H100 nodes (8 GPU each, 32 GPUs total)
+# Storage: pvc-lustre with pre-cached model
+---
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeploymentRequest
+metadata:
+  name: qwen3-235b-fp8-disagg
+  namespace: default
+spec:
+  model: Qwen/Qwen3-235B-A22B-FP8
+  backend: trtllm
+  searchStrategy: rapid
+  autoApply: true
+
+  # Profiler/frontend image — profiler derives backend image automatically:
+  #   dynamo-frontend:1.0.1 → tensorrtllm-runtime:1.0.1 (for trtllm backend)
+  image: jont828/dynamo-planner:trt-fix-v2
+
+  # Pre-cached model on Azure Lustre
+  modelCache:
+    pvcName: model-cache
+    pvcMountPath: /home/dynamo/.cache/huggingface
+    # Relative to pvcMountPath — generator prepends mount path automatically
+    pvcModelPath: hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+
+  # Hardware constraints — guides the profiler to choose correct TP sizes
+  # With vramMb=81920 (80GB), profiler should not pick TP=2 (needs ~78GB/GPU)
+  hardware:
+    gpuSku: h100_sxm
+    vramMb: 81920
+    totalGpus: 32
+    # numGpusPerNode: 8  # DISABLED — triggers profiler multinode bug (see profiler-multinode-bug-dump.txt)
+
+  # Workload profile
+  workload:
+    isl: 3000
+    osl: 300
+
+  # SLA targets
+  sla:
+    ttft: 500
+    itl: 30
+
+  # Planner enabled — MoE fix in moe-fix image allows interpolation to complete
+  features:
+    planner:
+      mode: disagg
+      enable_throughput_scaling: true
+      enable_load_scaling: true
+      max_gpu_budget: 32
+
+  overrides:
+    # Inject HF_TOKEN into the profiling job
+    profilingJob:
+      template:
+        spec:
+          containers:
+            - name: profiler
+              env:
+                - name: HF_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: hf-token-secret
+                      key: HF_TOKEN
+
+    # DGD overrides — deep-merged into profiler output by apply_dgd_overrides()
+    # Service names MUST match profiler-generated names (TRTLLMPrefillWorker, etc.)
+    # apiVersion/kind are required by CRD validation but stripped by the profiler
+    #
+    # NOTE: UCX_TLS/UCX_NET_DEVICES env vars removed — cluster now has working
+    # InfiniBand (see aks-infiniband-rdma-setup.md). UCX auto-detects IB verbs.
+    # IPC_LOCK is also no longer needed — RLIMIT_MEMLOCK=unlimited at the kubelet
+    # level means mlock() works without the capability (even as uid=1000).
+    dgd:
+      apiVersion: nvidia.com/v1alpha1
+      kind: DynamoGraphDeployment
+      metadata:
+        name: qwen3-235b-disagg
+      spec:
+        services:
+          prefill:
+            sharedMemory:
+              size: 256Gi
+          decode:
+            sharedMemory:
+              size: 256Gi
