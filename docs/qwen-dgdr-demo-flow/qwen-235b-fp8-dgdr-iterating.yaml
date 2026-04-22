@@ -57,7 +57,7 @@ apiVersion: nvidia.com/v1beta1
 kind: DynamoGraphDeploymentRequest
 metadata:
   name: qwen3-235b-fp8-disagg
-  namespace: dynamo-system
+  namespace: default
 spec:
   model: Qwen/Qwen3-235B-A22B-FP8
   backend: trtllm
@@ -66,12 +66,12 @@ spec:
 
   # Profiler/frontend image — profiler derives backend image automatically:
   #   dynamo-frontend:1.0.1 → tensorrtllm-runtime:1.0.1 (for trtllm backend)
-  image: jont828/dynamo-frontend:num-gpus-fix
+  image: jont828/dynamo-planner:trt-fix-v2
 
   # Pre-cached model on Azure Lustre
   modelCache:
-    pvcName: pvc-lustre
-    pvcMountPath: /model-store
+    pvcName: model-cache
+    pvcMountPath: /home/dynamo/.cache/huggingface
     # Relative to pvcMountPath — generator prepends mount path automatically
     pvcModelPath: hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
 
@@ -81,7 +81,7 @@ spec:
     gpuSku: h100_sxm
     vramMb: 81920
     totalGpus: 32
-    numGpusPerNode: 8
+    # numGpusPerNode: 8  # DISABLED — triggers profiler multinode bug (see profiler-multinode-bug-dump.txt)
 
   # Workload profile
   workload:
@@ -130,9 +130,9 @@ spec:
         name: qwen3-235b-disagg
       spec:
         services:
-          TRTLLMPrefillWorker:
+          prefill:
             sharedMemory:
               size: 256Gi
-          TRTLLMDecodeWorker:
+          decode:
             sharedMemory:
               size: 256Gi
