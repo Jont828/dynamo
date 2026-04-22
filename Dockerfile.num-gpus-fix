@@ -1,0 +1,5 @@
+FROM jont828/dynamo-frontend:moe-fix
+COPY components/src/dynamo/profiler/utils/config_modifiers/parallelization_mapping.py \
+     /opt/dynamo/venv/lib/python3.12/site-packages/dynamo/profiler/utils/config_modifiers/parallelization_mapping.py
+COPY components/src/dynamo/profiler/utils/config_modifiers/parallelization_mapping.py \
+     /workspace/components/src/dynamo/profiler/utils/config_modifiers/parallelization_mapping.py

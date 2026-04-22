@@ -1,0 +1,74 @@
+# Repro: MoE profiling bug with planner enabled on default 1.0.1 image
+# Expected: profiling fails during BuildingCurves (interpolation phase)
+# with TypeError or AssertionError in MOEModel.__init__
+#
+# This is qwen-235b-fp8-dgdr-iterating.yaml but with:
+#   - image changed to nvcr.io/nvidia/ai-dynamo/dynamo-frontend:1.0.1
+#   - features.planner enabled (triggers interpolation → exposes bugs)
+---
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeploymentRequest
+metadata:
+  name: qwen3-235b-fp8-disagg
+  namespace: default
+spec:
+  model: Qwen/Qwen3-235B-A22B-FP8
+  backend: trtllm
+  searchStrategy: rapid
+  autoApply: true
+
+  # Default release image — contains the unfixed interpolation.py
+  image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:1.0.1
+
+  modelCache:
+    pvcName: model-cache
+    pvcMountPath: /model-store
+    pvcModelPath: hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+
+  hardware:
+    gpuSku: h100_sxm
+    vramMb: 81920
+    totalGpus: 32
+    numGpusPerNode: 8
+
+  workload:
+    isl: 3000
+    osl: 300
+
+  sla:
+    ttft: 500
+    itl: 30
+
+  # Planner enabled — this triggers the interpolation phase where the bug lives
+  features:
+    planner:
+      mode: disagg
+      enable_throughput_scaling: true
+      enable_load_scaling: true
+      max_gpu_budget: 32
+
+  overrides:
+    profilingJob:
+      template:
+        spec:
+          containers:
+            - name: profiler
+              env:
+                - name: HF_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: hf-token-secret
+                      key: HF_TOKEN
+    dgd:
+      apiVersion: nvidia.com/v1alpha1
+      kind: DynamoGraphDeployment
+      metadata:
+        name: qwen3-235b-disagg
+      spec:
+        services:
+          TRTLLMPrefillWorker:
+            sharedMemory:
+              size: 256Gi
+          TRTLLMDecodeWorker:
+            sharedMemory:
+              size: 256Gi

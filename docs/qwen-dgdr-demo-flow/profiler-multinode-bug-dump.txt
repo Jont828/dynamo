@@ -1,0 +1,812 @@
+=== DGDR Spec ===
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeploymentRequest
+metadata:
+  annotations:
+    dgdr.nvidia.com/additional-resources: |
+      apiVersion: v1
+      data:
+        planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+      kind: ConfigMap
+      metadata:
+        name: planner-config-fcc9
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"nvidia.com/v1beta1","kind":"DynamoGraphDeploymentRequest","metadata":{"annotations":{},"name":"ecommerce-shopping-assistant","namespace":"default"},"spec":{"autoApply":true,"backend":"trtllm","features":{"planner":{"enable_load_scaling":true,"enable_throughput_scaling":true,"max_gpu_budget":32,"mode":"disagg"}},"image":"jont828/dynamo-planner:trt-fix","model":"Qwen/Qwen3-235B-A22B-FP8","modelCache":{"pvcModelPath":"hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35","pvcMountPath":"/home/dynamo/.cache/huggingface","pvcName":"model-cache"},"overrides":{"dgd":{"apiVersion":"nvidia.com/v1alpha1","kind":"DynamoGraphDeployment","metadata":{"name":"placeholder"},"spec":{"services":{"decode":{"sharedMemory":{"size":"256Gi"}},"prefill":{"sharedMemory":{"size":"256Gi"}}}}}},"searchStrategy":"rapid","sla":{"itl":30,"ttft":500},"workload":{"isl":3000,"osl":300}}}
+  creationTimestamp: "2026-04-22T20:59:23Z"
+  finalizers:
+  - nvidia.com/finalizer
+  generation: 1
+  name: ecommerce-shopping-assistant
+  namespace: default
+  resourceVersion: "2921904"
+  uid: e1f55835-e984-4e5c-af77-381e542750b0
+spec:
+  autoApply: true
+  backend: trtllm
+  features:
+    planner:
+      enable_load_scaling: true
+      enable_throughput_scaling: true
+      max_gpu_budget: 32
+      mode: disagg
+  image: jont828/dynamo-planner:trt-fix
+  model: Qwen/Qwen3-235B-A22B-FP8
+  modelCache:
+    pvcModelPath: hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+    pvcMountPath: /home/dynamo/.cache/huggingface
+    pvcName: model-cache
+  overrides:
+    dgd:
+      apiVersion: nvidia.com/v1alpha1
+      kind: DynamoGraphDeployment
+      metadata:
+        name: placeholder
+      spec:
+        services:
+          decode:
+            sharedMemory:
+              size: 256Gi
+          prefill:
+            sharedMemory:
+              size: 256Gi
+  searchStrategy: rapid
+  sla:
+    itl: 30
+    ttft: 500
+  workload:
+    isl: 3000
+    osl: 300
+status:
+  conditions:
+  - lastTransitionTime: "2026-04-22T20:59:23Z"
+    message: Deployment is in progress
+    observedGeneration: 1
+    reason: Deploying
+    status: "False"
+    type: Succeeded
+  - lastTransitionTime: "2026-04-22T20:59:50Z"
+    message: Profiling job completed successfully
+    observedGeneration: 1
+    reason: ProfilingCompleted
+    status: "True"
+    type: Profiling
+  - lastTransitionTime: "2026-04-22T20:59:50Z"
+    message: DynamoGraphDeployment spec generated successfully
+    observedGeneration: 1
+    reason: SpecGenerated
+    status: "True"
+    type: SpecGenerated
+  - lastTransitionTime: "2026-04-22T20:59:50Z"
+    message: DGD trtllm-disagg is in pending state
+    reason: DeploymentInProgress
+    status: "False"
+    type: DeploymentReady
+  deploymentInfo:
+    availableReplicas: 0
+    replicas: 6
+  dgdName: trtllm-disagg
+  observedGeneration: 1
+  phase: Deploying
+  profilingJobName: profile-ecommerce-shopping-assistant
+  profilingResults:
+    selectedConfig:
+      apiVersion: nvidia.com/v1alpha1
+      kind: DynamoGraphDeployment
+      metadata:
+        name: trtllm-disagg
+      spec:
+        pvcs:
+        - create: false
+          name: model-cache
+          size: "0"
+        services:
+          Frontend:
+            componentType: frontend
+            extraPodSpec:
+              mainContainer:
+                args:
+                - --model-name
+                - Qwen/Qwen3-235B-A22B-FP8
+                - --model-path
+                - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+                command:
+                - python3
+                - -m
+                - dynamo.frontend
+                image: jont828/tensorrtllm-runtime:trt-fix
+                name: ""
+                resources: {}
+            replicas: 1
+            volumeMounts:
+            - mountPoint: /home/dynamo/.cache/huggingface
+              name: model-cache
+          Planner:
+            componentType: planner
+            extraPodSpec:
+              mainContainer:
+                args:
+                - --config
+                - /workspace/planner_config/planner_config.json
+                command:
+                - python3
+                - -m
+                - dynamo.planner
+                image: jont828/dynamo-planner:trt-fix
+                name: ""
+                resources: {}
+                volumeMounts:
+                - mountPath: /workspace/planner_config
+                  name: planner-config-fcc9
+                  readOnly: true
+                workingDir: /workspace/components/src/dynamo/planner
+              volumes:
+              - configMap:
+                  name: planner-config-fcc9
+                name: planner-config-fcc9
+            replicas: 1
+          decode:
+            componentType: worker
+            envFromSecret: hf-token-secret
+            extraPodSpec:
+              mainContainer:
+                args:
+                - --model-path
+                - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+                - --served-model-name
+                - Qwen/Qwen3-235B-A22B-FP8
+                - --tensor-parallel-size
+                - "8"
+                - --pipeline-parallel-size
+                - "1"
+                - --expert-parallel-size
+                - "4"
+                - --enable-attention-dp
+                - --max-batch-size
+                - "24"
+                - --max-num-tokens
+                - "32"
+                - --override-engine-args
+                - '{"cache_transceiver_config": {"backend": "DEFAULT", "max_tokens_in_buffer":
+                  3808}, "disable_overlap_scheduler": false, "kv_cache_config": {"dtype":
+                  "fp8", "tokens_per_block": 32}}'
+                command:
+                - python3
+                - -m
+                - dynamo.trtllm
+                image: jont828/tensorrtllm-runtime:trt-fix
+                name: ""
+                resources: {}
+                workingDir: /workspace/
+            multinode:
+              nodeCount: 8
+            replicas: 2
+            resources:
+              limits:
+                gpu: "8"
+            sharedMemory:
+              size: 256Gi
+            subComponentType: decode
+            volumeMounts:
+            - mountPoint: /home/dynamo/.cache/huggingface
+              name: model-cache
+          prefill:
+            componentType: worker
+            envFromSecret: hf-token-secret
+            extraPodSpec:
+              mainContainer:
+                args:
+                - --model-path
+                - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+                - --served-model-name
+                - Qwen/Qwen3-235B-A22B-FP8
+                - --tensor-parallel-size
+                - "4"
+                - --pipeline-parallel-size
+                - "1"
+                - --expert-parallel-size
+                - "4"
+                - --max-batch-size
+                - "1"
+                - --max-num-tokens
+                - "3520"
+                - --override-engine-args
+                - '{"cache_transceiver_config": {"backend": "DEFAULT", "max_tokens_in_buffer":
+                  3808}, "disable_overlap_scheduler": true, "kv_cache_config": {"dtype":
+                  "fp8", "tokens_per_block": 32}}'
+                command:
+                - python3
+                - -m
+                - dynamo.trtllm
+                image: jont828/tensorrtllm-runtime:trt-fix
+                name: ""
+                resources: {}
+                workingDir: /workspace/
+            replicas: 2
+            resources:
+              limits:
+                gpu: "4"
+            sharedMemory:
+              size: 256Gi
+            subComponentType: prefill
+            volumeMounts:
+            - mountPoint: /home/dynamo/.cache/huggingface
+              name: model-cache
+      status:
+        state: ""
+
+=== Generated DGD Spec ===
+apiVersion: nvidia.com/v1alpha1
+kind: DynamoGraphDeployment
+metadata:
+  annotations:
+    nvidia.com/dynamo-operator-origin-version: 1.0.1
+  creationTimestamp: "2026-04-22T20:59:50Z"
+  finalizers:
+  - nvidia.com/finalizer
+  generation: 1
+  labels:
+    dgdr.nvidia.com/name: ecommerce-shopping-assistant
+    dgdr.nvidia.com/namespace: default
+    nvidia.com/managed-by: dynamo-operator
+  name: trtllm-disagg
+  namespace: default
+  resourceVersion: "2926752"
+  uid: 8b5e3805-f3a3-46de-af90-c99fbabe9a9d
+spec:
+  pvcs:
+  - create: false
+    name: model-cache
+    size: "0"
+  services:
+    Frontend:
+      componentType: frontend
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --model-name
+          - Qwen/Qwen3-235B-A22B-FP8
+          - --model-path
+          - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+          command:
+          - python3
+          - -m
+          - dynamo.frontend
+          image: jont828/tensorrtllm-runtime:trt-fix
+          name: ""
+          resources: {}
+      replicas: 1
+      volumeMounts:
+      - mountPoint: /home/dynamo/.cache/huggingface
+        name: model-cache
+        useAsCompilationCache: false
+    Planner:
+      componentType: planner
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --config
+          - /workspace/planner_config/planner_config.json
+          command:
+          - python3
+          - -m
+          - dynamo.planner
+          image: jont828/dynamo-planner:trt-fix
+          name: ""
+          resources: {}
+          volumeMounts:
+          - mountPath: /workspace/planner_config
+            name: planner-config-fcc9
+            readOnly: true
+          workingDir: /workspace/components/src/dynamo/planner
+        volumes:
+        - configMap:
+            name: planner-config-fcc9
+          name: planner-config-fcc9
+      replicas: 1
+    decode:
+      componentType: worker
+      envFromSecret: hf-token-secret
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --model-path
+          - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+          - --served-model-name
+          - Qwen/Qwen3-235B-A22B-FP8
+          - --tensor-parallel-size
+          - "8"
+          - --pipeline-parallel-size
+          - "1"
+          - --expert-parallel-size
+          - "4"
+          - --enable-attention-dp
+          - --max-batch-size
+          - "24"
+          - --max-num-tokens
+          - "32"
+          - --override-engine-args
+          - '{"cache_transceiver_config": {"backend": "DEFAULT", "max_tokens_in_buffer":
+            3808}, "disable_overlap_scheduler": false, "kv_cache_config": {"dtype":
+            "fp8", "tokens_per_block": 32}}'
+          command:
+          - python3
+          - -m
+          - dynamo.trtllm
+          image: jont828/tensorrtllm-runtime:trt-fix
+          name: ""
+          resources: {}
+          workingDir: /workspace/
+      multinode:
+        nodeCount: 8
+      replicas: 2
+      resources:
+        limits:
+          gpu: "8"
+      sharedMemory:
+        size: 256Gi
+      subComponentType: decode
+      volumeMounts:
+      - mountPoint: /home/dynamo/.cache/huggingface
+        name: model-cache
+        useAsCompilationCache: false
+    prefill:
+      componentType: worker
+      envFromSecret: hf-token-secret
+      extraPodSpec:
+        mainContainer:
+          args:
+          - --model-path
+          - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+          - --served-model-name
+          - Qwen/Qwen3-235B-A22B-FP8
+          - --tensor-parallel-size
+          - "4"
+          - --pipeline-parallel-size
+          - "1"
+          - --expert-parallel-size
+          - "4"
+          - --max-batch-size
+          - "1"
+          - --max-num-tokens
+          - "3520"
+          - --override-engine-args
+          - '{"cache_transceiver_config": {"backend": "DEFAULT", "max_tokens_in_buffer":
+            3808}, "disable_overlap_scheduler": true, "kv_cache_config": {"dtype":
+            "fp8", "tokens_per_block": 32}}'
+          command:
+          - python3
+          - -m
+          - dynamo.trtllm
+          image: jont828/tensorrtllm-runtime:trt-fix
+          name: ""
+          resources: {}
+          workingDir: /workspace/
+      replicas: 2
+      resources:
+        limits:
+          gpu: "4"
+      sharedMemory:
+        size: 256Gi
+      subComponentType: prefill
+      volumeMounts:
+      - mountPoint: /home/dynamo/.cache/huggingface
+        name: model-cache
+        useAsCompilationCache: false
+status:
+  conditions:
+  - lastTransitionTime: "2026-04-22T21:04:04Z"
+    message: 'Resources not ready: trtllm-disagg: podclique/trtllm-disagg-0-frontend:
+      desired=1, ready=0; pcsg/trtllm-disagg-0-decode: desired=2, available=0; podclique/trtllm-disagg-0-prefill:
+      desired=2, ready=0'
+    reason: some_resources_are_not_ready
+    status: "False"
+    type: Ready
+  observedGeneration: 1
+  services:
+    Frontend:
+      componentKind: PodClique
+      componentName: trtllm-disagg-0-frontend
+      componentNames:
+      - trtllm-disagg-0-frontend
+      readyReplicas: 0
+      replicas: 1
+      updatedReplicas: 1
+    Planner:
+      componentKind: PodClique
+      componentName: trtllm-disagg-0-planner
+      componentNames:
+      - trtllm-disagg-0-planner
+      readyReplicas: 1
+      replicas: 1
+      updatedReplicas: 1
+    decode:
+      availableReplicas: 0
+      componentKind: PodCliqueScalingGroup
+      componentName: trtllm-disagg-0-decode
+      componentNames:
+      - trtllm-disagg-0-decode
+      replicas: 2
+      updatedReplicas: 0
+    prefill:
+      componentKind: PodClique
+      componentName: trtllm-disagg-0-prefill
+      componentNames:
+      - trtllm-disagg-0-prefill
+      readyReplicas: 0
+      replicas: 2
+      updatedReplicas: 2
+  state: pending
+
+=== Profiler Pod Logs ===
+[2m2026-04-22T20:59:28.929982Z[0m [32m INFO[0m [2mfont_manager._load_fontmanager[0m[2m:[0m generated new fontManager
+[2m2026-04-22T20:59:34.522565Z[0m [32m INFO[0m [2mprofile_sla._extract_profiler_params[0m[2m:[0m Profiler config: model=Qwen/Qwen3-235B-A22B-FP8, backend=trtllm, system=h100_sxm, total_gpus=32, isl=3000, osl=300, ttft=500.0, itl=30.0, e2e_latency=None, strategy=rapid, picking=autoscale
+[2m2026-04-22T20:59:34.523311Z[0m [32m INFO[0m [2mutils._infer_quantization_fields[0m[2m:[0m Quant inference result: quant_algo=fp8_block, kv_cache_quant_algo=None, quant_dynamic=True
+[2m2026-04-22T20:59:34.523402Z[0m [32m INFO[0m [2mutils.get_model_config_from_model_path[0m[2m:[0m Loaded model config for Qwen/Qwen3-235B-A22B-FP8: architecture=Qwen3MoeForCausalLM, layers=94, n=64, n_kv=4, d=128, hidden_size=4096, inter_size=12288, vocab=151936, context=40960, topk=8, num_experts=128, moe_inter_size=1536, extra_params={'architecture': 'Qwen3MoeForCausalLM', 'use_qk_norm': True}
+[2m2026-04-22T20:59:34.566287Z[0m [32m INFO[0m [2mperf_database.get_database[0m[2m:[0m Loading database for system='h100_sxm', backend='trtllm', version='1.2.0rc5'
+[2m2026-04-22T20:59:39.329617Z[0m [32m INFO[0m [2mmodels._apply_model_quant_defaults[0m[2m:[0m Resolved quant modes for Prefill worker: gemm=GEMMQuantMode.fp8_block moe=MoEQuantMode.fp8_block kvcache=KVCacheQuantMode.fp8 fmha=FMHAQuantMode.fp8 comm=CommQuantMode.half
+[2m2026-04-22T20:59:39.329836Z[0m [32m INFO[0m [2mmodels._apply_model_quant_defaults[0m[2m:[0m Resolved quant modes for Decode worker: gemm=GEMMQuantMode.fp8_block moe=MoEQuantMode.fp8_block kvcache=KVCacheQuantMode.fp8 fmha=FMHAQuantMode.fp8 comm=CommQuantMode.half
+[2m2026-04-22T20:59:39.329916Z[0m [32m INFO[0m [2mtask.run[0m[2m:[0m Starting Pareto Analysis for disagg_Qwen/Qwen3-235B-A22B-FP8_h100_sxm_None_trtllm_1.2.0rc5_3000_300_0_500.0_30.0 in disagg mode (autoscale=True)...
+[2m2026-04-22T20:59:39.330242Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m Task disagg_Qwen/Qwen3-235B-A22B-FP8_h100_sxm_None_trtllm_1.2.0rc5_3000_300_0_500.0_30.0: Listing prefill parallelism configs to evaluate: 
+[2m2026-04-22T20:59:39.330281Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 1) tp=1, pp=1, dp=1, moe_tp=1, moe_ep=1
+[2m2026-04-22T20:59:39.330309Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 2) tp=1, pp=1, dp=2, moe_tp=1, moe_ep=2
+[2m2026-04-22T20:59:39.330328Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 3) tp=1, pp=1, dp=2, moe_tp=2, moe_ep=1
+[2m2026-04-22T20:59:39.330352Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 4) tp=1, pp=1, dp=4, moe_tp=1, moe_ep=4
+[2m2026-04-22T20:59:39.330378Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 5) tp=1, pp=1, dp=4, moe_tp=2, moe_ep=2
+[2m2026-04-22T20:59:39.330394Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 6) tp=1, pp=1, dp=4, moe_tp=4, moe_ep=1
+[2m2026-04-22T20:59:39.330417Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 7) tp=1, pp=1, dp=8, moe_tp=1, moe_ep=8
+[2m2026-04-22T20:59:39.330434Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 8) tp=1, pp=1, dp=8, moe_tp=2, moe_ep=4
+[2m2026-04-22T20:59:39.330456Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 9) tp=1, pp=1, dp=8, moe_tp=4, moe_ep=2
+[2m2026-04-22T20:59:39.330472Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 10) tp=1, pp=1, dp=8, moe_tp=8, moe_ep=1
+[2m2026-04-22T20:59:39.330495Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 11) tp=2, pp=1, dp=1, moe_tp=1, moe_ep=2
+[2m2026-04-22T20:59:39.330511Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 12) tp=2, pp=1, dp=1, moe_tp=2, moe_ep=1
+[2m2026-04-22T20:59:39.330526Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 13) tp=4, pp=1, dp=1, moe_tp=1, moe_ep=4
+[2m2026-04-22T20:59:39.330542Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 14) tp=4, pp=1, dp=1, moe_tp=2, moe_ep=2
+[2m2026-04-22T20:59:39.330565Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 15) tp=4, pp=1, dp=1, moe_tp=4, moe_ep=1
+[2m2026-04-22T20:59:39.330588Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 16) tp=8, pp=1, dp=1, moe_tp=1, moe_ep=8
+[2m2026-04-22T20:59:39.330610Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 17) tp=8, pp=1, dp=1, moe_tp=2, moe_ep=4
+[2m2026-04-22T20:59:39.330627Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 18) tp=8, pp=1, dp=1, moe_tp=4, moe_ep=2
+[2m2026-04-22T20:59:39.330649Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 19) tp=8, pp=1, dp=1, moe_tp=8, moe_ep=1
+[2m2026-04-22T20:59:39.330773Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m Task disagg_Qwen/Qwen3-235B-A22B-FP8_h100_sxm_None_trtllm_1.2.0rc5_3000_300_0_500.0_30.0: Listing decode parallelism configs to evaluate: 
+[2m2026-04-22T20:59:39.330807Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 1) tp=1, pp=1, dp=1, moe_tp=1, moe_ep=1
+[2m2026-04-22T20:59:39.330835Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 2) tp=1, pp=1, dp=2, moe_tp=1, moe_ep=2
+[2m2026-04-22T20:59:39.330861Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 3) tp=1, pp=1, dp=2, moe_tp=2, moe_ep=1
+[2m2026-04-22T20:59:39.330887Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 4) tp=1, pp=1, dp=4, moe_tp=1, moe_ep=4
+[2m2026-04-22T20:59:39.330914Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 5) tp=1, pp=1, dp=4, moe_tp=2, moe_ep=2
+[2m2026-04-22T20:59:39.330939Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 6) tp=1, pp=1, dp=4, moe_tp=4, moe_ep=1
+[2m2026-04-22T20:59:39.330957Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 7) tp=1, pp=1, dp=8, moe_tp=1, moe_ep=8
+[2m2026-04-22T20:59:39.330980Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 8) tp=1, pp=1, dp=8, moe_tp=2, moe_ep=4
+[2m2026-04-22T20:59:39.331003Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 9) tp=1, pp=1, dp=8, moe_tp=4, moe_ep=2
+[2m2026-04-22T20:59:39.331024Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 10) tp=1, pp=1, dp=8, moe_tp=8, moe_ep=1
+[2m2026-04-22T20:59:39.331047Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 11) tp=2, pp=1, dp=1, moe_tp=1, moe_ep=2
+[2m2026-04-22T20:59:39.331061Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 12) tp=2, pp=1, dp=1, moe_tp=2, moe_ep=1
+[2m2026-04-22T20:59:39.331076Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 13) tp=4, pp=1, dp=1, moe_tp=1, moe_ep=4
+[2m2026-04-22T20:59:39.331097Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 14) tp=4, pp=1, dp=1, moe_tp=2, moe_ep=2
+[2m2026-04-22T20:59:39.331112Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 15) tp=4, pp=1, dp=1, moe_tp=4, moe_ep=1
+[2m2026-04-22T20:59:39.331133Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 16) tp=8, pp=1, dp=1, moe_tp=1, moe_ep=8
+[2m2026-04-22T20:59:39.331154Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 17) tp=8, pp=1, dp=1, moe_tp=2, moe_ep=4
+[2m2026-04-22T20:59:39.331169Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 18) tp=8, pp=1, dp=1, moe_tp=4, moe_ep=2
+[2m2026-04-22T20:59:39.331189Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m 19) tp=8, pp=1, dp=1, moe_tp=8, moe_ep=1
+[2m2026-04-22T20:59:39.331213Z[0m [32m INFO[0m [2mtask.run_disagg[0m[2m:[0m Task disagg_Qwen/Qwen3-235B-A22B-FP8_h100_sxm_None_trtllm_1.2.0rc5_3000_300_0_500.0_30.0: Running disagg pareto
+[2m2026-04-22T20:59:39.417364Z[0m [33m WARN[0m [2minference_session.get_worker_candidates[0m[2m:[0m Error getting candidate workers with parallel config: tp=1, pp=1, dp=8, moe_tp=8, moe_ep=1; skipping this combination. Error: Invalid quantized MoE configuration: (moe_intermediate_size=1536 / moe_tp_size=8) % weight_block_size=128 != 0. 
+[2m2026-04-22T20:59:39.442355Z[0m [33m WARN[0m [2minference_session.get_worker_candidates[0m[2m:[0m Error getting candidate workers with parallel config: tp=8, pp=1, dp=1, moe_tp=8, moe_ep=1; skipping this combination. Error: Invalid quantized MoE configuration: (moe_intermediate_size=1536 / moe_tp_size=8) % weight_block_size=128 != 0. 
+[2m2026-04-22T20:59:39.941527Z[0m [33m WARN[0m [2minference_session.get_worker_candidates[0m[2m:[0m Error getting candidate workers with parallel config: tp=1, pp=1, dp=8, moe_tp=8, moe_ep=1; skipping this combination. Error: Invalid quantized MoE configuration: (moe_intermediate_size=1536 / moe_tp_size=8) % weight_block_size=128 != 0. 
+[2m2026-04-22T20:59:41.128938Z[0m [33m WARN[0m [2minference_session.get_worker_candidates[0m[2m:[0m Error getting candidate workers with parallel config: tp=8, pp=1, dp=1, moe_tp=8, moe_ep=1; skipping this combination. Error: Invalid quantized MoE configuration: (moe_intermediate_size=1536 / moe_tp_size=8) % weight_block_size=128 != 0. 
+[2m2026-04-22T20:59:41.232529Z[0m [32m INFO[0m [2mprofile_sla._execute_strategy[0m[2m:[0m Selected prefill: dep4 (4 GPUs, tp=4 pp=1 dp=1 moe_tp=1 moe_ep=4), decode: dep4 (8 GPUs, tp=1 pp=1 dp=8 moe_tp=2 moe_ep=4)
+[2m2026-04-22T20:59:41.232691Z[0m [32m INFO[0m [2mprotocol.apply_dgd_overrides[0m[2m:[0m Ignoring envelope field(s) ['apiVersion', 'kind'] from overrides.dgd — these are controlled by the deployment template and cannot be overridden.
+[2m2026-04-22T20:59:41.232731Z[0m [32m INFO[0m [2mprotocol.apply_dgd_overrides[0m[2m:[0m Ignoring metadata identity field(s) ['name'] from overrides.dgd — use the DGD template to set these.
+[2m2026-04-22T20:59:41.232776Z[0m [32m INFO[0m [2mprofile_sla.run_profile[0m[2m:[0m Applied DGD overrides to the picked DGD config.
+[2m2026-04-22T20:59:41.240834Z[0m [32m INFO[0m [2mutils._infer_quantization_fields[0m[2m:[0m Quant inference result: quant_algo=fp8_block, kv_cache_quant_algo=None, quant_dynamic=True
+[2m2026-04-22T20:59:41.240920Z[0m [32m INFO[0m [2mutils.get_model_config_from_model_path[0m[2m:[0m Loaded model config for /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35: architecture=Qwen3MoeForCausalLM, layers=94, n=64, n_kv=4, d=128, hidden_size=4096, inter_size=12288, vocab=151936, context=40960, topk=8, num_experts=128, moe_inter_size=1536, extra_params={'architecture': 'Qwen3MoeForCausalLM', 'use_qk_norm': True}
+[2m2026-04-22T20:59:41.243802Z[0m [32m INFO[0m [2mprotocol.apply_dgd_overrides[0m[2m:[0m Ignoring envelope field(s) ['apiVersion', 'kind'] from overrides.dgd — these are controlled by the deployment template and cannot be overridden.
+[2m2026-04-22T20:59:41.243867Z[0m [32m INFO[0m [2mprotocol.apply_dgd_overrides[0m[2m:[0m Ignoring metadata identity field(s) ['name'] from overrides.dgd — use the DGD template to set these.
+[2m2026-04-22T20:59:41.243916Z[0m [32m INFO[0m [2mprofile_sla.run_profile[0m[2m:[0m Applied DGD overrides to the final config.
+[2m2026-04-22T20:59:41.246931Z[0m [32m INFO[0m [2mprofile_sla._write_final_output[0m[2m:[0m Final DGD config saved to /data/final_config.yaml
+[2m2026-04-22T20:59:41.247234Z[0m [32m INFO[0m [2mprofile_sla.run_profile[0m[2m:[0m Performing final cleanup of any remaining deployments...
+[2m2026-04-22T20:59:41.247293Z[0m [32m INFO[0m [2mdynamo_deployment.cleanup_remaining_deployments[0m[2m:[0m No deployments to clean up
+[2m2026-04-22T20:59:41.247323Z[0m [32m INFO[0m [2mprofile_sla.run_profile[0m[2m:[0m Final cleanup completed.
+
+=== Profiler ConfigMap Output ===
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    final_config.yaml: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: planner-config-fcc9
+      data:
+        planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+      ---
+      metadata:
+        name: trtllm-disagg
+      spec:
+        services:
+          Frontend:
+            replicas: 1
+            resources: null
+            extraPodSpec:
+              mainContainer:
+                image: jont828/tensorrtllm-runtime:trt-fix
+                workingDir: null
+                command:
+                - python3
+                - -m
+                - dynamo.frontend
+                args:
+                - --model-name
+                - Qwen/Qwen3-235B-A22B-FP8
+                - --model-path
+                - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+                resources: null
+            subComponentType: null
+            multinode: null
+            componentType: frontend
+            volumeMounts:
+            - name: model-cache
+              mountPoint: /home/dynamo/.cache/huggingface
+          prefill:
+            replicas: 2
+            resources:
+              requests: null
+              limits:
+                gpu: '4'
+            extraPodSpec:
+              mainContainer:
+                image: jont828/tensorrtllm-runtime:trt-fix
+                workingDir: /workspace/
+                command:
+                - python3
+                - -m
+                - dynamo.trtllm
+                args:
+                - --model-path
+                - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+                - --served-model-name
+                - Qwen/Qwen3-235B-A22B-FP8
+                - --tensor-parallel-size
+                - '4'
+                - --pipeline-parallel-size
+                - '1'
+                - --expert-parallel-size
+                - '4'
+                - --max-batch-size
+                - '1'
+                - --max-num-tokens
+                - '3520'
+                - --override-engine-args
+                - '{"cache_transceiver_config": {"backend": "DEFAULT", "max_tokens_in_buffer":
+                  3808}, "disable_overlap_scheduler": true, "kv_cache_config": {"dtype":
+                  "fp8", "tokens_per_block": 32}}'
+                resources: null
+            subComponentType: prefill
+            multinode: null
+            envFromSecret: hf-token-secret
+            componentType: worker
+            volumeMounts:
+            - name: model-cache
+              mountPoint: /home/dynamo/.cache/huggingface
+            sharedMemory:
+              size: 256Gi
+          decode:
+            replicas: 2
+            resources:
+              requests: null
+              limits:
+                gpu: '8'
+            extraPodSpec:
+              mainContainer:
+                image: jont828/tensorrtllm-runtime:trt-fix
+                workingDir: /workspace/
+                command:
+                - python3
+                - -m
+                - dynamo.trtllm
+                args:
+                - --model-path
+                - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35
+                - --served-model-name
+                - Qwen/Qwen3-235B-A22B-FP8
+                - --tensor-parallel-size
+                - '8'
+                - --pipeline-parallel-size
+                - '1'
+                - --expert-parallel-size
+                - '4'
+                - --enable-attention-dp
+                - --max-batch-size
+                - '24'
+                - --max-num-tokens
+                - '32'
+                - --override-engine-args
+                - '{"cache_transceiver_config": {"backend": "DEFAULT", "max_tokens_in_buffer":
+                  3808}, "disable_overlap_scheduler": false, "kv_cache_config": {"dtype":
+                  "fp8", "tokens_per_block": 32}}'
+                resources: null
+            subComponentType: decode
+            multinode:
+              nodeCount: 8
+            envFromSecret: hf-token-secret
+            componentType: worker
+            volumeMounts:
+            - name: model-cache
+              mountPoint: /home/dynamo/.cache/huggingface
+            sharedMemory:
+              size: 256Gi
+          Planner:
+            componentType: planner
+            replicas: 1
+            extraPodSpec:
+              mainContainer:
+                image: jont828/dynamo-planner:trt-fix
+                workingDir: /workspace/components/src/dynamo/planner
+                command:
+                - python3
+                - -m
+                - dynamo.planner
+                args:
+                - --config
+                - /workspace/planner_config/planner_config.json
+                resources: null
+                volumeMounts:
+                - name: planner-config-fcc9
+                  mountPath: /workspace/planner_config
+                  readOnly: true
+              volumes:
+              - name: planner-config-fcc9
+                configMap:
+                  name: planner-config-fcc9
+        pvcs:
+        - name: model-cache
+          create: false
+      apiVersion: nvidia.com/v1alpha1
+      kind: DynamoGraphDeployment
+    profiler_status.yaml: |
+      status: success
+      timestamp: '2026-04-22T20:59:41Z'
+      message: Profiler completed successfully
+      outputs:
+        final_config: final_config.yaml
+      phase: Done
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"final_config.yaml":"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: planner-config-fcc9\ndata:\n  planner_config.json: '{\"pre_deployment_sweeping_mode\":\"rapid\",\"environment\":\"kubernetes\",\"namespace\":\"dynamo\",\"backend\":\"vllm\",\"mode\":\"disagg\",\"optimization_target\":\"throughput\",\"log_dir\":null,\"throughput_adjustment_interval\":180,\"max_gpu_budget\":32,\"min_endpoint\":1,\"decode_engine_num_gpu\":8,\"prefill_engine_num_gpu\":4,\"profile_results_dir\":\"/workspace/profiling_results\",\"aic_interpolation\":null,\"ttft\":500.0,\"itl\":50.0,\"load_predictor\":\"arima\",\"load_predictor_log1p\":false,\"prophet_window_size\":50,\"load_predictor_warmup_trace\":null,\"kalman_q_level\":1.0,\"kalman_q_trend\":0.1,\"kalman_r\":10.0,\"kalman_min_points\":5,\"metric_pulling_prometheus_endpoint\":\"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090\",\"metric_reporting_prometheus_port\":0,\"throughput_metrics_source\":\"frontend\",\"model_name\":null,\"global_planner_namespace\":null,\"enable_throughput_scaling\":false,\"enable_load_scaling\":true,\"load_adjustment_interval\":5,\"max_num_fpm_samples\":64,\"fpm_sample_bucket_size\":16,\"load_scaling_down_sensitivity\":80,\"load_metric_samples\":10,\"load_min_observations\":5,\"advisory\":false,\"report_interval_hours\":24.0,\"report_output_dir\":\"./planner_reports\",\"report_filename\":null,\"live_dashboard_port\":8080}'\n---\nmetadata:\n  name: trtllm-disagg\nspec:\n  services:\n    Frontend:\n      replicas: 1\n      resources: null\n      extraPodSpec:\n        mainContainer:\n          image: jont828/tensorrtllm-runtime:trt-fix\n          workingDir: null\n          command:\n          - python3\n          - -m\n          - dynamo.frontend\n          args:\n          - --model-name\n          - Qwen/Qwen3-235B-A22B-FP8\n          - --model-path\n          - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35\n          resources: null\n      subComponentType: null\n      multinode: null\n      componentType: frontend\n      volumeMounts:\n      - name: model-cache\n        mountPoint: /home/dynamo/.cache/huggingface\n    prefill:\n      replicas: 2\n      resources:\n        requests: null\n        limits:\n          gpu: '4'\n      extraPodSpec:\n        mainContainer:\n          image: jont828/tensorrtllm-runtime:trt-fix\n          workingDir: /workspace/\n          command:\n          - python3\n          - -m\n          - dynamo.trtllm\n          args:\n          - --model-path\n          - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35\n          - --served-model-name\n          - Qwen/Qwen3-235B-A22B-FP8\n          - --tensor-parallel-size\n          - '4'\n          - --pipeline-parallel-size\n          - '1'\n          - --expert-parallel-size\n          - '4'\n          - --max-batch-size\n          - '1'\n          - --max-num-tokens\n          - '3520'\n          - --override-engine-args\n          - '{\"cache_transceiver_config\": {\"backend\": \"DEFAULT\", \"max_tokens_in_buffer\":\n            3808}, \"disable_overlap_scheduler\": true, \"kv_cache_config\": {\"dtype\":\n            \"fp8\", \"tokens_per_block\": 32}}'\n          resources: null\n      subComponentType: prefill\n      multinode: null\n      envFromSecret: hf-token-secret\n      componentType: worker\n      volumeMounts:\n      - name: model-cache\n        mountPoint: /home/dynamo/.cache/huggingface\n      sharedMemory:\n        size: 256Gi\n    decode:\n      replicas: 2\n      resources:\n        requests: null\n        limits:\n          gpu: '8'\n      extraPodSpec:\n        mainContainer:\n          image: jont828/tensorrtllm-runtime:trt-fix\n          workingDir: /workspace/\n          command:\n          - python3\n          - -m\n          - dynamo.trtllm\n          args:\n          - --model-path\n          - /home/dynamo/.cache/huggingface/hub/models--Qwen--Qwen3-235B-A22B-FP8/snapshots/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35\n          - --served-model-name\n          - Qwen/Qwen3-235B-A22B-FP8\n          - --tensor-parallel-size\n          - '8'\n          - --pipeline-parallel-size\n          - '1'\n          - --expert-parallel-size\n          - '4'\n          - --enable-attention-dp\n          - --max-batch-size\n          - '24'\n          - --max-num-tokens\n          - '32'\n          - --override-engine-args\n          - '{\"cache_transceiver_config\": {\"backend\": \"DEFAULT\", \"max_tokens_in_buffer\":\n            3808}, \"disable_overlap_scheduler\": false, \"kv_cache_config\": {\"dtype\":\n            \"fp8\", \"tokens_per_block\": 32}}'\n          resources: null\n      subComponentType: decode\n      multinode:\n        nodeCount: 8\n      envFromSecret: hf-token-secret\n      componentType: worker\n      volumeMounts:\n      - name: model-cache\n        mountPoint: /home/dynamo/.cache/huggingface\n      sharedMemory:\n        size: 256Gi\n    Planner:\n      componentType: planner\n      replicas: 1\n      extraPodSpec:\n        mainContainer:\n          image: jont828/dynamo-planner:trt-fix\n          workingDir: /workspace/components/src/dynamo/planner\n          command:\n          - python3\n          - -m\n          - dynamo.planner\n          args:\n          - --config\n          - /workspace/planner_config/planner_config.json\n          resources: null\n          volumeMounts:\n          - name: planner-config-fcc9\n            mountPath: /workspace/planner_config\n            readOnly: true\n        volumes:\n        - name: planner-config-fcc9\n          configMap:\n            name: planner-config-fcc9\n  pvcs:\n  - name: model-cache\n    create: false\napiVersion: nvidia.com/v1alpha1\nkind: DynamoGraphDeployment\n","profiler_status.yaml":"status: success\ntimestamp: '2026-04-22T20:59:41Z'\nmessage: Profiler completed successfully\noutputs:\n  final_config: final_config.yaml\nphase: Done\n"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"dgdr.nvidia.com/name":"ecommerce-shopping-assistant","nvidia.com/managed-by":"dynamo-operator"},"name":"dgdr-output-ecommerce-shopping-assistant","namespace":"default"}}
+    creationTimestamp: "2026-04-22T20:59:46Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      nvidia.com/managed-by: dynamo-operator
+    name: dgdr-output-ecommerce-shopping-assistant
+    namespace: default
+    resourceVersion: "2921531"
+    uid: 43f6dee2-db9d-4b7e-8e34-6ed82c4f2f08
+- apiVersion: v1
+  data:
+    planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-04-21T19:00:53Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      dgdr.nvidia.com/namespace: default
+      nvidia.com/managed-by: dynamo-operator
+    name: planner-config-314a
+    namespace: default
+    resourceVersion: "1316266"
+    uid: a5c813ac-aa9f-440e-ac0a-c045fab28734
+- apiVersion: v1
+  data:
+    planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-04-21T20:29:20Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      dgdr.nvidia.com/namespace: default
+      nvidia.com/managed-by: dynamo-operator
+    name: planner-config-335d
+    namespace: default
+    resourceVersion: "1408304"
+    uid: e110cb5b-56fc-4f96-9042-eab0689bce0a
+- apiVersion: v1
+  data:
+    planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-04-21T22:00:27Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      dgdr.nvidia.com/namespace: default
+      nvidia.com/managed-by: dynamo-operator
+    name: planner-config-4992
+    namespace: default
+    resourceVersion: "1502621"
+    uid: d66c1882-67b1-4aa2-b46e-5abe66757b7c
+- apiVersion: v1
+  data:
+    planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-04-22T00:56:00Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      dgdr.nvidia.com/namespace: default
+      nvidia.com/managed-by: dynamo-operator
+    name: planner-config-72b6
+    namespace: default
+    resourceVersion: "1682940"
+    uid: 13d31065-d464-43d2-a4ad-14850366dea9
+- apiVersion: v1
+  data:
+    planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-04-22T01:12:16Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      dgdr.nvidia.com/namespace: default
+      nvidia.com/managed-by: dynamo-operator
+    name: planner-config-761d
+    namespace: default
+    resourceVersion: "1701365"
+    uid: 1bc15e2c-a04b-4267-bf23-1776c6fd5fcd
+- apiVersion: v1
+  data:
+    planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-04-21T18:07:04Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      dgdr.nvidia.com/namespace: default
+      nvidia.com/managed-by: dynamo-operator
+    name: planner-config-a4c7
+    namespace: default
+    resourceVersion: "1261714"
+    uid: e58395e9-289f-4b48-a122-884a16ba6fa4
+- apiVersion: v1
+  data:
+    planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-04-22T00:53:17Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      dgdr.nvidia.com/namespace: default
+      nvidia.com/managed-by: dynamo-operator
+    name: planner-config-b4ac
+    namespace: default
+    resourceVersion: "1679629"
+    uid: d9e8ae3c-1fca-458d-b543-7df9e521ff0c
+- apiVersion: v1
+  data:
+    planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-04-22T01:31:29Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      dgdr.nvidia.com/namespace: default
+      nvidia.com/managed-by: dynamo-operator
+    name: planner-config-b834
+    namespace: default
+    resourceVersion: "1722579"
+    uid: 9dae7fc1-cd2d-4cde-9365-8d4fac39f751
+- apiVersion: v1
+  data:
+    planner_config.json: '{"pre_deployment_sweeping_mode":"rapid","environment":"kubernetes","namespace":"dynamo","backend":"vllm","mode":"disagg","optimization_target":"throughput","log_dir":null,"throughput_adjustment_interval":180,"max_gpu_budget":32,"min_endpoint":1,"decode_engine_num_gpu":8,"prefill_engine_num_gpu":4,"profile_results_dir":"/workspace/profiling_results","aic_interpolation":null,"ttft":500.0,"itl":50.0,"load_predictor":"arima","load_predictor_log1p":false,"prophet_window_size":50,"load_predictor_warmup_trace":null,"kalman_q_level":1.0,"kalman_q_trend":0.1,"kalman_r":10.0,"kalman_min_points":5,"metric_pulling_prometheus_endpoint":"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090","metric_reporting_prometheus_port":0,"throughput_metrics_source":"frontend","model_name":null,"global_planner_namespace":null,"enable_throughput_scaling":false,"enable_load_scaling":true,"load_adjustment_interval":5,"max_num_fpm_samples":64,"fpm_sample_bucket_size":16,"load_scaling_down_sensitivity":80,"load_metric_samples":10,"load_min_observations":5,"advisory":false,"report_interval_hours":24.0,"report_output_dir":"./planner_reports","report_filename":null,"live_dashboard_port":8080}'
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-04-22T20:59:50Z"
+    labels:
+      dgdr.nvidia.com/name: ecommerce-shopping-assistant
+      dgdr.nvidia.com/namespace: default
+      nvidia.com/managed-by: dynamo-operator
+    name: planner-config-fcc9
+    namespace: default
+    resourceVersion: "2921596"
+    uid: 8d7e08af-2f4c-49d8-ac9a-28b9f3a95985
+kind: List
+metadata:
+  resourceVersion: ""
