@@ -215,7 +215,6 @@ $( [[ -n "$DGDR_IMAGE" ]] && echo "  image: ${DGDR_IMAGE}" )
       enable_load_scaling: true
       max_gpu_budget: 32
       mode: disagg"
-fi
 
 # Rebuild CLUSTER_FETCH now that MODEL/BACKEND are finalized (--dgdr-file may have changed them)
 if [[ "$CLUSTER_FETCH_TEMPLATE" == true ]]; then
