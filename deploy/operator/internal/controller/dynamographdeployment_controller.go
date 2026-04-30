@@ -399,7 +399,7 @@ func (r *DynamoGraphDeploymentReconciler) getUpdatedInProgressForGrove(ctx conte
 	logger := log.FromContext(ctx)
 
 	pcs := &grovev1alpha1.PodCliqueSet{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: dgd.Name, Namespace: dgd.Namespace}, pcs)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: dynamo.PCSNameForDGD(dgd.Name, dgd.Spec.Services), Namespace: dgd.Namespace}, pcs)
 	if err != nil {
 		logger.Error(err, "failed to get PodCliqueSet")
 		return inProgress
@@ -418,7 +418,7 @@ func (r *DynamoGraphDeploymentReconciler) getUpdatedInProgressForGrove(ctx conte
 	updatedInProgress := make([]string, 0, len(inProgress))
 	for _, serviceName := range inProgress {
 		component := dgd.Spec.Services[serviceName]
-		resourceName := fmt.Sprintf("%s-0-%s", dgd.Name, strings.ToLower(serviceName))
+		resourceName := fmt.Sprintf("%s-0-%s", dynamo.PCSNameForDGD(dgd.Name, dgd.Spec.Services), strings.ToLower(serviceName))
 
 		var isReady bool
 		var reason string
@@ -447,7 +447,7 @@ func (r *DynamoGraphDeploymentReconciler) propagateTopologyCondition(ctx context
 	logger := log.FromContext(ctx)
 
 	pcs := &grovev1alpha1.PodCliqueSet{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Name: dgd.Name, Namespace: dgd.Namespace}, pcs); err != nil {
+	if err := r.Client.Get(ctx, types.NamespacedName{Name: dynamo.PCSNameForDGD(dgd.Name, dgd.Spec.Services), Namespace: dgd.Namespace}, pcs); err != nil {
 		if errors.IsNotFound(err) {
 			return
 		}
@@ -594,7 +594,7 @@ func (r *DynamoGraphDeploymentReconciler) reconcileGrovePodCliqueSet(ctx context
 func (r *DynamoGraphDeploymentReconciler) getExistingRestartAnnotationsPCS(ctx context.Context, dgd *nvidiacomv1alpha1.DynamoGraphDeployment) (map[string]string, error) {
 	restartAnnotations := make(map[string]string)
 	pcs := &grovev1alpha1.PodCliqueSet{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: dgd.Name, Namespace: dgd.Namespace}, pcs)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: dynamo.PCSNameForDGD(dgd.Name, dgd.Spec.Services), Namespace: dgd.Namespace}, pcs)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get PodCliqueSet: %w", err)
 	}
@@ -619,6 +619,7 @@ func (r *DynamoGraphDeploymentReconciler) reconcileGroveScaling(ctx context.Cont
 	logger.V(1).Info("Reconciling Grove scaling operations")
 
 	replicaIndex := 0
+	pcsName := dynamo.PCSNameForDGD(dynamoDeployment.Name, dynamoDeployment.Spec.Services)
 	for serviceName, component := range dynamoDeployment.Spec.Services {
 		// Skip if replicas are not specified
 		if component.Replicas == nil {
@@ -630,8 +631,8 @@ func (r *DynamoGraphDeploymentReconciler) reconcileGroveScaling(ctx context.Cont
 
 		if isMultinode {
 			// Scale PodCliqueScalingGroup for multinode services
-			// Grove naming pattern: {DGD.name}-{replicaIndex}-{serviceName}
-			resourceName := fmt.Sprintf("%s-%d-%s", dynamoDeployment.Name, replicaIndex, strings.ToLower(serviceName))
+			// Grove naming pattern: {PCS.name}-{replicaIndex}-{serviceName}
+			resourceName := fmt.Sprintf("%s-%d-%s", pcsName, replicaIndex, strings.ToLower(serviceName))
 			err := r.scaleGroveResource(ctx,
 				resourceName,
 				dynamoDeployment.Namespace,
@@ -643,8 +644,8 @@ func (r *DynamoGraphDeploymentReconciler) reconcileGroveScaling(ctx context.Cont
 			}
 		} else {
 			// Scale individual PodClique for single-node services
-			// Grove naming pattern: {DGD.name}-{replicaIndex}-{serviceName}
-			resourceName := fmt.Sprintf("%s-%d-%s", dynamoDeployment.Name, replicaIndex, strings.ToLower(serviceName))
+			// Grove naming pattern: {PCS.name}-{replicaIndex}-{serviceName}
+			resourceName := fmt.Sprintf("%s-%d-%s", pcsName, replicaIndex, strings.ToLower(serviceName))
 			err := r.scaleGroveResource(ctx,
 				resourceName,
 				dynamoDeployment.Namespace,
@@ -1759,10 +1760,10 @@ func (r *DynamoGraphDeploymentReconciler) mapPodCliqueToRequests(ctx context.Con
 // mapPodCliqueScalingGroupToRequests maps a PodCliqueScalingGroup to reconcile
 // requests for its owning DGD.
 //
-// The PCSG is owned by a PodCliqueSet (controller ownerRef), and Dynamo always
-// creates the PodCliqueSet with the same name as the DGD
-// (see graph.go: gangSet.Name = dynamoDeployment.Name), so the PodCliqueSet
-// owner reference name is the DGD name.
+// The PCSG is owned by a PodCliqueSet (controller ownerRef). The PCS name may
+// differ from the DGD name when auto-truncation is applied (see PCSNameForDGD),
+// so we look up the PCS and read its KubeLabelDynamoGraphDeploymentName label
+// to find the actual DGD name.
 func (r *DynamoGraphDeploymentReconciler) mapPodCliqueScalingGroupToRequests(ctx context.Context, obj client.Object) []ctrl.Request {
 	pcsg, ok := obj.(*grovev1alpha1.PodCliqueScalingGroup)
 	if !ok {
@@ -1779,9 +1780,31 @@ func (r *DynamoGraphDeploymentReconciler) mapPodCliqueScalingGroupToRequests(ctx
 		return nil
 	}
 
+	// Look up the PCS to find the DGD name via label, since PCS name may be
+	// truncated and no longer match the DGD name.
+	pcs := &grovev1alpha1.PodCliqueSet{}
+	if err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      controllerRef.Name,
+		Namespace: pcsg.Namespace,
+	}, pcs); err != nil {
+		log.FromContext(ctx).V(1).Info("failed to look up PodCliqueSet for PCSG",
+			"podCliqueScalingGroup", pcsg.Name,
+			"pcsName", controllerRef.Name,
+			"error", err)
+		return nil
+	}
+
+	dgdName, ok := pcs.GetLabels()[consts.KubeLabelDynamoGraphDeploymentName]
+	if !ok || dgdName == "" {
+		log.FromContext(ctx).V(1).Info("PodCliqueSet missing DGD name label",
+			"pcsName", controllerRef.Name,
+			"namespace", pcsg.Namespace)
+		return nil
+	}
+
 	return []ctrl.Request{{
 		NamespacedName: types.NamespacedName{
-			Name:      controllerRef.Name,
+			Name:      dgdName,
 			Namespace: pcsg.Namespace,
 		},
 	}}

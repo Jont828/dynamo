@@ -510,7 +510,7 @@ func TestDynamoGraphDeploymentValidator_Validate(t *testing.T) {
 		},
 		// Service name length validation tests
 		{
-			name: "service name too long for single-node deployment",
+			name: "long DGD name auto-truncated for single-node - no error",
 			deployment: &nvidiacomv1alpha1.DynamoGraphDeployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "verylongdynamographdeploymentname",
@@ -519,6 +519,24 @@ func TestDynamoGraphDeploymentValidator_Validate(t *testing.T) {
 				Spec: nvidiacomv1alpha1.DynamoGraphDeploymentSpec{
 					Services: map[string]*nvidiacomv1alpha1.DynamoComponentDeploymentSharedSpec{
 						"VeryLongServiceNameThatExceedsLimit": {},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "service name so long that even truncated PCS name exceeds limit",
+			deployment: &nvidiacomv1alpha1.DynamoGraphDeployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-long-dgd-name",
+					Namespace: "default",
+				},
+				Spec: nvidiacomv1alpha1.DynamoGraphDeploymentSpec{
+					Services: map[string]*nvidiacomv1alpha1.DynamoComponentDeploymentSharedSpec{
+						// 38 chars lowercase → pcsBudget = 45-38 = 7 < 8 → clamped to 8.
+						// DGD name 16 chars > 8 → truncated to 8.
+						// Combined: 8 + 38 = 46 > 45 → error even after truncation.
+						"VeryVeryExtremelyLongServiceNameXXXXXX": {},
 					},
 				},
 			},

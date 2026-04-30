@@ -64,7 +64,7 @@ func GetComponentReadinessAndServiceReplicaStatuses(ctx context.Context, client 
 
 	for serviceName, component := range dgd.Spec.Services {
 		isMultinode := component.GetNumberOfNodes() > 1
-		resourceName := fmt.Sprintf("%s-0-%s", dgd.Name, strings.ToLower(serviceName))
+		resourceName := fmt.Sprintf("%s-0-%s", PCSNameForDGD(dgd.Name, dgd.Spec.Services), strings.ToLower(serviceName))
 
 		if isMultinode {
 			// Check PodCliqueScalingGroup: spec.replicas == status.availableReplicas
