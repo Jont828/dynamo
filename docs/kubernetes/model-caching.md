@@ -117,13 +117,13 @@ spec:
     - create: false
       name: model-cache
   services:
-    VllmWorker:
+    worker:
       volumeMounts:
         - name: model-cache
           mountPoint: /home/dynamo/.cache/huggingface
 ```
 
-All `VllmWorker` pods that mount `model-cache` now read from the shared cache, avoiding per-pod worker downloads. If you also want the frontend to reuse tokenizer and config files, mount the same PVC there too.
+All `worker` pods that mount `model-cache` now read from the shared cache, avoiding per-pod worker downloads. If you also want the frontend to reuse tokenizer and config files, mount the same PVC there too.
 
 ### Compilation Cache
 
@@ -137,7 +137,7 @@ spec:
     - create: false
       name: compilation-cache
   services:
-    VllmWorker:
+    worker:
       volumeMounts:
         - name: model-cache
           mountPoint: /home/dynamo/.cache/huggingface
@@ -185,7 +185,7 @@ helm install dynamo-platform dynamo-platform-${RELEASE_VERSION}.tgz \
 
 ```yaml
 services:
-  VllmWorker:
+  worker:
     extraPodSpec:
       mainContainer:
         image: <vllm-runtime-image-with-modelexpress>
@@ -216,7 +216,7 @@ Set `MODEL_EXPRESS_NO_SHARED_STORAGE=1` on every worker pod to switch the ModelE
 
 ```yaml
 services:
-  VllmWorker:
+  worker:
     extraPodSpec:
       mainContainer:
         image: <vllm-runtime-image-with-modelexpress>
@@ -249,7 +249,7 @@ Set `MX_MODEL_URI` when the first worker should stream safetensors directly from
 
 ```yaml
 services:
-  VllmWorker:
+  worker:
     extraPodSpec:
       mainContainer:
         image: <vllm-runtime-image-with-modelexpress-and-modelstreamer>
