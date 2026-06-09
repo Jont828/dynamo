@@ -102,7 +102,7 @@ spec:
             # + 5 builtin plugins instead of the legacy PSM. See the
             # rollout runbook before flipping in production.
             - '{"environment": "kubernetes", "backend": "vllm", "ttft": 200, "itl": 10, "profile_results_dir": "/workspace/components/src/dynamo/planner/tests/data/profiling_results/H200_TP1P_TP1D/", "throughput_adjustment_interval": 60, "metric_reporting_prometheus_port": 9085, "scheduling": {"use_orchestrator": true}}'
-    VllmDecodeWorker:
+    decode:
       envFromSecret: hf-token-secret
       componentType: worker
       subComponentType: decode
@@ -156,7 +156,7 @@ spec:
             - --no-enable-prefix-caching
             - --block-size
             - "128"
-    VllmPrefillWorker:
+    prefill:
       envFromSecret: hf-token-secret
       componentType: worker
       subComponentType: prefill
