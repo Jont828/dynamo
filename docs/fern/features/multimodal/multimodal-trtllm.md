@@ -87,7 +87,7 @@ Current limitations:
 - Requests that mix image URLs and precomputed `.safetensors` embeddings skip multimodal-aware routing.
 - The worker and frontend must use matching block sizes.
 
-For the user-facing workflow, see [Multimodal KV Routing](../../../../use-cases/multimodal/multimodal-kv-routing).
+For the user-facing workflow, see [Multimodal KV Routing](multimodal-kv-routing.md).
 
 ## Aggregated Serving
 

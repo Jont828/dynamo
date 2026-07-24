@@ -279,84 +279,95 @@ navigation:
 
   - tab: use-cases
     layout:
-      # ==================== Use Cases ====================
-      - section: Use Cases
-        icon: magnifying-glass-chart
+      # ==================== Features ====================
+      - section: Agents
+        collapsed: true
+        icon: users
+        slug: agents
         contents:
-          - section: Agents
-            slug: agents
-            contents:
-              - page: Overview
-                path: agents/README.md
-              - page: Session IDs
-                path: agents/session-ids.mdx
-              - page: Agent Hints
-                path: agents/agent-hints.md
-              - page: Agent Harnesses
-                path: agents/agent-harnesses.md
-              - page: Agent Tracing
-                path: agents/agent-tracing.md
-              - page: Agent Simulation
-                path: agents/agent-replay.md
-              - page: ThunderAgent Program Scheduler
-                path: agents/thunderagent-router.md
-          - section: Multimodal
-            slug: multimodal
-            contents:
-              - page: Overview
-                path: features/multimodal/README.md
-              - page: Embedding Cache
-                path: features/multimodal/embedding-cache.md
-              - page: Multimodal KV Routing
-                slug: multimodal-kv-routing
-                path: features/multimodal/multimodal-kv-routing.md
-              - page: Encoder Disaggregation
-                path: features/multimodal/encoder-disaggregation.md
-          - section: Diffusion
-            slug: diffusion
-            contents:
-              - page: Overview
-                path: features/diffusion/README.md
-              - section: Workflows
-                collapsed: true
-                contents:
-                  - page: Text-to-Image
-                    slug: text-to-image
-                    path: features/diffusion/text-to-image/README.md
-                  - page: Text-to-Video
-                    slug: text-to-video
-                    path: features/diffusion/text-to-video/README.md
-                  - page: Image-to-Video
-                    slug: image-to-video
-                    path: features/diffusion/image-to-video/README.md
-                  - page: Text-to-Audio
-                    slug: text-to-audio
-                    path: features/diffusion/text-to-audio/README.md
-                  - page: Text-to-Text (LLM Diffusion)
-                    slug: text-to-text
-                    path: features/diffusion/text-to-text/README.md
-          # TODO: add Reinforcement Learning (RL) use-case docs here when available.
-
-      # ==================== Other Features ====================
-      - section: Other Features
-        icon: star
+          - page: Overview
+            path: agents/README.md
+          - page: Session IDs
+            path: agents/session-ids.mdx
+          - page: Agent Hints
+            path: agents/agent-hints.md
+          - page: Agent Harnesses
+            path: agents/agent-harnesses.md
+          - page: Agent Tracing
+            path: agents/agent-tracing.md
+          - page: Agent Simulation
+            path: agents/agent-replay.md
+          - page: ThunderAgent Program Scheduler
+            path: agents/thunderagent-router.md
+      - section: Multimodal Serving
+        collapsed: true
+        icon: photo-film
+        slug: multimodal
         contents:
-          - section: Tool Calling & Reasoning
-            slug: parsing
+          - page: Overview
+            path: features/multimodal/README.md
+          - page: Embedding Cache
+            path: features/multimodal/embedding-cache.md
+          - page: Multimodal KV Routing
+            slug: multimodal-kv-routing
+            path: features/multimodal/multimodal-kv-routing.md
+          - page: Encoder Disaggregation
+            path: features/multimodal/encoder-disaggregation.md
+      - section: Diffusion
+        collapsed: true
+        icon: wand-magic-sparkles
+        slug: diffusion
+        contents:
+          - page: Overview
+            path: features/diffusion/README.md
+          - section: Workflows
+            collapsed: true
+            skip-slug: true
             contents:
-              - page: Introduction
-                path: tool-calling/introduction.mdx
-              - page: Chat Processors
-                path: tool-calling/chat-processors.mdx
-              - page: Tool Call Parsing
-                path: tool-calling/README.mdx
-              - page: Reasoning Parsing
-                path: reasoning/README.md
-              - page: Troubleshooting Tool Calls
-                path: tool-calling/troubleshooting.md
-          - page: Fastokens Tokenizer
+              - page: Text-to-Image
+                slug: text-to-image
+                path: features/diffusion/text-to-image/README.md
+              - page: Text-to-Video
+                slug: text-to-video
+                path: features/diffusion/text-to-video/README.md
+              - page: Image-to-Video
+                slug: image-to-video
+                path: features/diffusion/image-to-video/README.md
+              - page: Text-to-Audio
+                slug: text-to-audio
+                path: features/diffusion/text-to-audio/README.md
+              - page: Text-to-Text (LLM Diffusion)
+                slug: text-to-text
+                path: features/diffusion/text-to-text/README.md
+      # TODO: add Reinforcement Learning (RL) feature docs here when available.
+      - section: Tool Calling & Reasoning
+        collapsed: true
+        icon: screwdriver-wrench
+        slug: parsing
+        contents:
+          - page: Introduction
+            path: tool-calling/introduction.mdx
+          - page: Chat Processors
+            path: tool-calling/chat-processors.mdx
+          - page: Tool Call Parsing
+            path: tool-calling/README.mdx
+          - page: Reasoning Parsing
+            path: reasoning/README.md
+          - page: Troubleshooting Tool Calls
+            path: tool-calling/troubleshooting.md
+      - section: Fastokens Tokenizer
+        collapsed: true
+        icon: gauge
+        path: features/tokenizer/README.md
+        contents:
+          - page: Overview
             path: features/tokenizer/README.md
-          - page: LoRA Adapters
+      - section: LoRA Adapters
+        collapsed: true
+        icon: sliders
+        path: features/lora/README.md
+        contents:
+          - page: Overview
             path: features/lora/README.md
 
   - tab: well-lit-paths

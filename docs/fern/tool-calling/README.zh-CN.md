@@ -50,16 +50,19 @@ spec:
 
 Frontend 无需额外 flag——默认的 `dynamo` chat processor 会为每个后端解析工具调用。
 
-> [!IMPORTANT]
-> `--dyn-tool-call-parser` 与默认的 `dynamo` chat processor 配对，放在 **worker** 上。裸的 `--tool-call-parser`（无 `--dyn-` 前缀）是另一个 flag——它驱动 [engine fallback](chat-processors.mdx) 并放在 Frontend 上。不要在默认 processor 下使用裸 flag，也不要把 `--dyn-tool-call-parser` 放在 `vllm`/`sglang` chat processor 上。
+<Warning>
+`--dyn-tool-call-parser` 与默认的 `dynamo` chat processor 配对，放在 **worker** 上。裸的 `--tool-call-parser`（无 `--dyn-` 前缀）是另一个 flag——它驱动 [engine fallback](chat-processors.mdx) 并放在 Frontend 上。不要在默认 processor 下使用裸 flag，也不要把 `--dyn-tool-call-parser` 放在 `vllm`/`sglang` chat processor 上。
+</Warning>
 
 该 flag 可用于任意 worker——`dynamo.vllm`、`dynamo.sglang` 或 `dynamo.trtllm`。完整的 worker flag 列表请参阅各后端指南（[vLLM](../backends/vllm/README.md)、[SGLang](../backends/sglang/README.md)、[TensorRT-LLM](../backends/trtllm/README.md)），或以 `--help` 运行 worker。初次编写 DGD？请从 [Deploy with DGD](../kubernetes/dgd-guide.md) 开始。
 
-> [!TIP]
-> 如果你的模型默认的 chat template 不支持工具调用，但模型本身支持，可以在 worker 的 `args:` 中添加 `--custom-jinja-template /path/to/template.jinja`（该模板文件需在容器内可读）。
+<Tip>
+如果你的模型默认的 chat template 不支持工具调用，但模型本身支持，可以在 worker 的 `args:` 中添加 `--custom-jinja-template /path/to/template.jinja`（该模板文件需在容器内可读）。
+</Tip>
 
-> [!TIP]
-> 如果你的模型还会输出需要与正常内容分离的推理内容，请参阅 [Reasoning Parsing (Dynamo)](../reasoning/README.md) 了解支持的 `--dyn-reasoning-parser` 取值。
+<Tip>
+如果你的模型还会输出需要与正常内容分离的推理内容，请参阅 [Reasoning Parsing (Dynamo)](../reasoning/README.md) 了解支持的 `--dyn-reasoning-parser` 取值。
+</Tip>
 
 ## 支持的工具调用解析器
 
@@ -89,8 +92,9 @@ Frontend 无需额外 flag——默认的 `dynamo` chat processor 会为每个�
 | `jamba` | Jamba 1.5 / 1.6 / 1.7 | Dynamo-only | `<tool_calls>` JSON |
 | `default` | *(fallback)* | Dynamo-only | 空 JSON 配置（无 start/end token）。生产环境请优先使用模型专用解析器。 |
 
-> [!TIP]
-> 对于 Kimi K2.5 thinking 模型，将 `--dyn-tool-call-parser kimi_k2` 与 [Reasoning Parsing (Dynamo)](../reasoning/README.md) 中的 `--dyn-reasoning-parser kimi_k25` 配对，以便从同一响应中正确解析 `<think>` 块和工具调用。
+<Tip>
+对于 Kimi K2.5 thinking 模型，将 `--dyn-tool-call-parser kimi_k2` 与 [Reasoning Parsing (Dynamo)](../reasoning/README.md) 中的 `--dyn-reasoning-parser kimi_k25` 配对，以便从同一响应中正确解析 `<think>` 块和工具调用。
+</Tip>
 
 ## 示例
 
@@ -181,9 +185,10 @@ curl -s http://localhost:8000/v1/chat/completions \
 
 Dynamo 会从模型输出中解析出工具调用，并在响应中以兼容 OpenAI 的 `tool_calls` 形式呈现。
 
-> [!TIP]
-> 如果工具调用返回结果不正确，请向单个复现请求添加 `"logprobs": true` 并分享响应。有关报告问题时需要捕获和包含的内容，请参阅
-> [工具调用故障排查](troubleshooting.md)。
+<Tip>
+如果工具调用返回结果不正确，请向单个复现请求添加 `"logprobs": true` 并分享响应。有关报告问题时需要捕获和包含的内容，请参阅
+[工具调用故障排查](troubleshooting.md)。
+</Tip>
 
 ## 可选：结构化标签（structural tags）
 

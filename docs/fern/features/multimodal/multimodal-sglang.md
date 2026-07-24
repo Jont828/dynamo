@@ -114,7 +114,7 @@ cd -
 
 Enable `DYN_LOG=info,mm_routing=debug` to inspect image-token counts, multimodal hashes, and the selected worker's overlap. A repeated request should select the same worker with high block overlap.
 
-For the user-facing workflow, see [Multimodal KV Routing](../../../../use-cases/multimodal/multimodal-kv-routing).
+For the user-facing workflow, see [Multimodal KV Routing](multimodal-kv-routing.md).
 
 ## Use the Latest Release
 
