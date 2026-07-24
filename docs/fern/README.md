@@ -51,7 +51,7 @@ the navigation in `docs/index.yml`, and running `fern check` to validate.
 
 | Skill | Description |
 |-------|-------------|
-| [dynamo-docs](../.agents/skills/dynamo-docs/SKILL.md) | Add, update, move, or remove a docs page |
+| [dynamo-docs](https://github.com/ai-dynamo/dynamo/blob/main/.agents/skills/dynamo-docs/SKILL.md) | Add, update, move, or remove a docs page |
 
 ---
 

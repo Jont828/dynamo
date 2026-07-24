@@ -707,19 +707,26 @@ navigation:
       - section: Contributing
         icon: code-pull-request
         contents:
-          - page: Contribution Guide
+          - page: Overview
             path: contribution-guide.md
             slug: contribution-guide
-
-      - section: Documentation
-        icon: file-lines
-        contents:
-          - page: Documentation Style Guide
-            path: documentation-style-guide.md
-            slug: style-guide
-          - page: Building and Publishing
-            path: README.md
-            slug: building-and-publishing
+          - page: Getting Started
+            path: contributing/getting-started.mdx
+          - page: Contribution Flow
+            path: contributing/contribution-flow.mdx
+          - page: Code Quality
+            path: contributing/code-quality.md
+          - page: DCO and Licensing
+            path: contributing/dco-and-licensing.md
+          - section: Documentation
+            icon: file-lines
+            contents:
+              - page: Documentation Style Guide
+                path: documentation-style-guide.md
+                slug: style-guide
+              - page: Building and Publishing
+                path: README.md
+                slug: building-and-publishing
 
       - section: Advanced Customizations
         slug: advanced-customizations
