@@ -393,3 +393,5 @@ LoRA (Low-Rank Adaptation) serves specialized model variants without duplicating
 | vLLM | <Badge intent="success" minimal>Yes</Badge> | Full support including KV-aware routing |
 | SGLang | <Badge intent="warning" minimal>WIP</Badge> | Support is in progress |
 | TensorRT-LLM | <Badge intent="note" minimal>No</Badge> | Not yet supported |
+
+See the [feature support matrix](../../reference/compatibility.mdx#feature-support) for full compatibility details.

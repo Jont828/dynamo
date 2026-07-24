@@ -16,7 +16,8 @@
 # yaml-language-server: $schema=https://schema.buildwithfern.dev/docs-yml.json
 
 instances:
-  - url: ai-dynamo.docs.buildwithfern.com/dynamo
+  - url: dynamo.docs.buildwithfern.com/dynamo
+    custom-domain: [docs.nvidia.com/dynamo, docs.dynamo.nvidia.com/dynamo]
     multi-source: true
 
 title: NVIDIA Dynamo Documentation
@@ -59,6 +60,17 @@ redirects:
     destination: "/dynamo/dev/reference/compatibility"
   - source: "/dynamo/resources/release-artifacts"
     destination: "/dynamo/dev/reference/release-artifacts"
+  - source: "/dynamo/resources/model-early-access-builds"
+    destination: "/dynamo/dev/reference/model-early-access-builds"
+  # Live-site "Resources" section URLs (main's nav) → consolidated reference pages.
+  - source: "/dynamo/dev/resources/support-matrix"
+    destination: "/dynamo/dev/reference/compatibility"
+  - source: "/dynamo/dev/resources/feature-matrix"
+    destination: "/dynamo/dev/reference/compatibility"
+  - source: "/dynamo/dev/resources/release-artifacts"
+    destination: "/dynamo/dev/reference/release-artifacts"
+  - source: "/dynamo/dev/resources/model-early-access-builds"
+    destination: "/dynamo/dev/reference/model-early-access-builds"
   - source: "/dynamo/resources/examples"
     destination: "/dynamo/dev/resources/examples"
   # Version-scoped getting-started → resources redirects
@@ -395,7 +407,9 @@ experimental:
 colors:
   accentPrimary:
     dark: '#76B900'
-    light: '#76B900'
+    # Darkened NVIDIA green for light mode: #76B900 on white is 2.41:1,
+    # below the 3:1 minimum Fern warns about; #538300 passes (~4.3:1).
+    light: '#538300'
   background:
     light: '#FFFFFF'
     dark: '#000000'
@@ -426,6 +440,8 @@ favicon: ./assets/NVIDIA_symbol.svg
 
 js:
   - url: https://assets.adobedtm.com/5d4962a43b79/c1061d2c5e7b/launch-191c2462b890.min.js
+    strategy: beforeInteractive
+  - path: ./custom.js
     strategy: beforeInteractive
 css:
   - ./main.css

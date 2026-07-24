@@ -808,8 +808,36 @@ navigation:
             path: reference/compatibility.mdx
           - page: Release Artifacts
             path: reference/release-artifacts.mdx
+          - section: Releases
+            contents:
+              - page: Release History
+                path: reference/release-notes/README.mdx
+              - page: Dynamo v1.3.0
+                path: reference/release-notes/v1-3-0.mdx
+                slug: v1-3-0
+              - page: Dynamo v1.2.0
+                path: reference/release-notes/v1-2-0.mdx
+                slug: v1-2-0
+              - page: Dynamo v1.1.0
+                path: reference/release-notes/v1-1-0.mdx
+                slug: v1-1-0
+              - page: Dynamo v1.0.0
+                path: reference/release-notes/v1-0-0.mdx
+                slug: v1-0-0
+              - page: Known Issues
+                path: reference/known-issues.mdx
+              - page: Deprecations
+                path: reference/deprecations.mdx
+          - page: Model Early Access Builds
+            path: reference/model-early-access-builds.mdx
           - page: Glossary
             path: reference/glossary.md
+          # Machine-readable mirror of releases.data.ts for agents; reachable
+          # by URL and llms indexes, not the sidebar.
+          - page: Releases (machine-readable)
+            path: reference/releases-data.mdx
+            slug: releases-data
+            hidden: true
 
       # ==================== Kubernetes API variant ====================
       - title: Kubernetes API

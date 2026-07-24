@@ -23,7 +23,7 @@
 #    - Triggers on trusted pushes to main or pull-request/N when docs-site files change
 #    - On main: commits and pushes to docs-website, then publishes via `fern generate --docs`
 #    - On gated PR branches: generates a preview URL via `fern generate --docs --preview` and comments on PR
-#    - Preserves the Docs product's release-managed versions from docs-website's docs.yml
+#    - Preserves release-managed versions from docs-website's docs.yml
 #
 # 2. VERSION RELEASE (tags): Creates versioned documentation snapshot
 #    - Triggers on new version tags (vX.Y.Z format)
@@ -34,6 +34,11 @@
 # Note: The publish step is included inline because pushes made with GITHUB_TOKEN
 # do not trigger other workflows (GitHub's anti-recursion guard), so we cannot
 # rely on a separate publish-fern-docs.yml workflow for bot-initiated pushes.
+#
+# Validation: the sync/release composition (rsync scopes, nav path transforms,
+# the shared-Reference machinery) only executes on main pushes and tag cuts.
+# Before changing it, replay both jobs locally against the docs-website branch:
+#   docs/fern/scripts/simulate_docs_website.sh
 
 name: Fern Docs
 
@@ -149,6 +154,40 @@ jobs:
             --exclude='watch.sh' \
             source-checkout/docs/fern/ docs-checkout/fern/pages-dev/
 
+          # Component *doc* pages (.md/.mdx) live alongside the React .tsx under
+          # docs/fern/components/. The main rsync excludes components/ wholesale
+          # so the .tsx don't double-sync into pages-dev (they go to
+          # fern/components/ for the docs.yml mdx-components + footer
+          # resolution). But the nav references component doc pages from both
+          # the Developer Guide tab and the Reference tab's Components variant,
+          # and the path transform below rewrites those to
+          # ../pages-dev/components/. Sync ONLY the doc pages here — never the
+          # .tsx — so the paths resolve and the per-version snapshot
+          # (cp -r pages-dev) freezes them correctly.
+          echo "Syncing component doc pages (.md/.mdx only) to pages-dev/components/..."
+          rsync -a \
+            --include='*/' \
+            --include='*.md' \
+            --include='*.mdx' \
+            --exclude='*' \
+            --prune-empty-dirs \
+            source-checkout/docs/fern/components/ docs-checkout/fern/pages-dev/components/
+
+          # Backend deploy manifests are embedded into templates/{vllm,sglang,
+          # trtllm}.mdx via build-time <Code src="../../../examples/backends/
+          # <engine>/deploy/*.yaml"> file reads. Those resolve to the repo-root
+          # examples/ tree in the source layout, which does not exist on
+          # docs-website — sync just the referenced deploy/ subtrees to the
+          # branch root so both ../../../examples (from pages-dev) and the
+          # versioned snapshots resolve.
+          echo "Syncing examples/backends/*/deploy/ to branch root..."
+          rsync -a \
+            --include='*/' \
+            --include='backends/*/deploy/**' \
+            --exclude='*' \
+            --prune-empty-dirs \
+            source-checkout/examples/ docs-checkout/examples/
+
           # Sync index.yml as versions/dev.yml and transform paths for docs-website layout
           echo "Syncing index.yml to docs-website branch as versions/dev.yml..."
           cp source-checkout/docs/fern/index.yml docs-checkout/fern/versions/dev.yml
@@ -184,20 +223,35 @@ jobs:
           rm -rf docs-checkout/fern/products
           cp source-checkout/docs/fern/welcome.mdx docs-checkout/fern/welcome.mdx
 
+          # Sync root-level assets/ (docs.yml logos/fonts and welcome.mdx reference
+          # ./assets/ relative to the Fern root, not pages-dev). Merge-copy without
+          # deleting so assets still referenced by older versioned pages survive.
+          if [ -d source-checkout/docs/fern/assets ]; then
+            echo "Syncing assets/ to docs-website branch..."
+            cp -r source-checkout/docs/fern/assets/. docs-checkout/fern/assets/
+          fi
+
           # Sync digest/ directory
           if [ -d source-checkout/docs/fern/digest ]; then
             echo "Syncing digest/ to docs-website branch..."
             # Keep fern/blogs for older versioned docs that still reference ../blogs.
             rm -rf docs-checkout/fern/digest
             cp -r source-checkout/docs/fern/digest docs-checkout/fern/digest
+            # The digest posts were renamed .md -> .mdx at the source; retarget the
+            # release-managed versions/v*.yml snapshots that still point at the old
+            # extension. Harmless no-op once every snapshot references .mdx.
+            sed -i 's|\(path: \.\./digest/.*\)\.md$|\1.mdx|' docs-checkout/fern/versions/v*.yml
           fi
 
-          # Sync main.css and remove the legacy custom variant selector script.
+          # Sync site-wide CSS and the Reference-page interaction script.
           if [ -f source-checkout/docs/fern/main.css ]; then
             echo "Syncing main.css to docs-website branch..."
             cp source-checkout/docs/fern/main.css docs-checkout/fern/main.css
           fi
-          rm -f docs-checkout/fern/custom.js
+          if [ -f source-checkout/docs/fern/custom.js ]; then
+            echo "Syncing custom.js to docs-website branch..."
+            cp source-checkout/docs/fern/custom.js docs-checkout/fern/custom.js
+          fi
 
       - name: Transform paths in dev.yml for docs-website layout
         run: |
@@ -208,7 +262,41 @@ jobs:
           # Order matters: transform digest/ first so the second sub() won't re-match it
           # (they'll start with ../ which doesn't match ^[a-zA-Z]).
           yq -i '(.. | select(has("path")).path) |= sub("^digest/", "../digest/")' docs-checkout/fern/versions/dev.yml
+yq -i '(.. | select(has("path")).path) |= sub("^\./welcome\.mdx$", "../welcome.mdx")' docs-checkout/fern/versions/dev.yml
           yq -i '(.. | select(has("path")).path) |= sub("^([a-zA-Z])", "../pages-dev/${1}")' docs-checkout/fern/versions/dev.yml
+
+      - name: Propagate shared Reference nav to released versions
+        run: |
+          # The Reference tab's General variant (Compatibility, Release
+          # Artifacts, Releases, Known Issues, Deprecations, Model EA Builds,
+          # Glossary) is SHARED across versions: release snapshots keep its nav
+          # paths on ../pages-dev/ so every version dropdown renders the
+          # always-current reference. When a page is added to the shared
+          # reference on main (e.g. a new release-notes page), copy the
+          # variant's nav block from dev.yml into each released version's yml
+          # so the new page appears in every dropdown, not just dev. Version
+          # snapshots cut before the reference rework have no such variant and
+          # are left untouched (the yq selection matches nothing).
+          yq '[.navigation[] | select(.tab == "reference") | .variants[] | select(.title == "General")][0]' \
+            docs-checkout/fern/versions/dev.yml > /tmp/reference_general_variant.yml
+
+          if [ "$(yq 'length' /tmp/reference_general_variant.yml)" = "0" ] || \
+             [ "$(head -c4 /tmp/reference_general_variant.yml)" = "null" ]; then
+            echo "No shared Reference General variant in dev.yml; skipping propagation"
+          else
+            for vfile in docs-checkout/fern/versions/v*.yml; do
+              [ -e "$vfile" ] || continue
+              # Only rewrite files that actually carry the shared variant —
+              # yq -i normalizes whitespace, so touching pre-rework snapshots
+              # (which have no reference General variant) is pure churn.
+              if [ "$(yq '[.navigation[] | select(.tab == "reference") | .variants[] | select(.title == "General")] | length' "$vfile")" != "0" ]; then
+                yq -i '(.navigation[] | select(.tab == "reference") | .variants[] | select(.title == "General")) = load("/tmp/reference_general_variant.yml")' "$vfile"
+                echo "Synced shared Reference nav into $vfile"
+              else
+                echo "Skipped (no shared Reference variant): $vfile"
+              fi
+            done
+          fi
 
       - name: Convert GitHub callouts to Fern format
         run: |
@@ -216,17 +304,23 @@ jobs:
           python3 docs-checkout/fern/convert_callouts.py --dir docs-checkout/fern/pages-dev
           echo "Callout conversion complete."
 
-      - name: Update docs.yml preserving products
+      - name: Update docs.yml preserving versions
         run: |
           cd docs-checkout/fern
 
-          # Preserve the Docs product's release-managed path and versions. The
-          # Dynamo fallback handles the first sync from the pre-product layout.
-          yq '[.products[] | select(.display-name == "Docs" or .display-name == "Dynamo")][0] | {"path": .path, "versions": .versions}' \
-            docs.yml > /tmp/preserved_docs_product.yml
+          # Preserve the release-managed version list. Production may still use
+          # the older Docs/Dynamo product wrapper during the first sync after this
+          # branch's navigation refactor, so accept either shape.
+          yq '. as $doc | ([$doc.products[]? | select(.display-name == "Docs" or .display-name == "Dynamo")][0].versions // $doc.versions)' \
+            docs.yml > /tmp/preserved_versions.yml
 
-          echo "Preserved Docs product release state:"
-          cat /tmp/preserved_docs_product.yml
+          if [ "$(head -c4 /tmp/preserved_versions.yml)" = "null" ]; then
+            echo "::error::No release-managed versions found in docs.yml"
+            exit 1
+          fi
+
+          echo "Preserved release state:"
+          cat /tmp/preserved_versions.yml
 
           # Copy docs.yml from source to get config updates (redirects, layout, etc.)
           cp ../../source-checkout/docs/fern/docs.yml docs.yml
@@ -236,9 +330,9 @@ jobs:
           # for older source layouts.
           sed -i 's|\.\./docs/assets/|./assets/|g' docs.yml
 
-          # Restore release-managed fields without overwriting the source product
-          # order, labels, slugs, or the Home/Blog/Community products.
-          yq -i '( .products[] | select(.display-name == "Docs") ) *= load("/tmp/preserved_docs_product.yml")' docs.yml
+          # The refactored source uses standalone top-level versioning rather than
+          # a product switcher. Restore the release history in that native shape.
+          yq -i '.versions = load("/tmp/preserved_versions.yml")' docs.yml
 
           # Inject the private NVIDIA global theme for production builds only.
           # It is intentionally absent from the source repo's docs.yml so that
@@ -416,6 +510,24 @@ jobs:
           # Copy current pages-dev/ to pages-vX.Y.Z/
           cp -r fern/pages-dev "fern/pages-$TAG"
 
+          # The Reference tab's General variant is shared (always-current)
+          # across versions: its nav paths stay on ../pages-dev/ (see the
+          # version-config step), so drop exactly the files that variant
+          # references from the snapshot rather than freezing stale copies.
+          # Everything else under reference/ (observability pages, config
+          # references) belongs to versioned tabs and stays in the snapshot.
+          # If the selectors stop matching (tab or variant renamed), this and
+          # the version-config revert silently no-op and the reference quietly
+          # freezes per version again — warn loudly so the rename gets fixed.
+          if [ "$(yq '[.navigation[] | select(.tab == "reference") | .variants[] | select(.title == "General")] | length' fern/versions/dev.yml)" = "0" ]; then
+            echo "::warning::No Reference General variant found in dev.yml — the shared-reference exclusion is a no-op and $TAG will freeze its own reference copy. If the tab or variant was renamed, update the yq selectors in this workflow."
+          fi
+          yq '.navigation[] | select(.tab == "reference") | .variants[] | select(.title == "General") | .. | select(has("path")) | .path' \
+            fern/versions/dev.yml | sed 's|^\.\./pages-dev/||' | while read -r relpath; do
+              [ -n "$relpath" ] && rm -f "fern/pages-$TAG/$relpath"
+            done
+          find "fern/pages-$TAG/reference" -type d -empty -delete 2>/dev/null || true
+
           echo "Created fern/pages-$TAG/"
           ls -la "fern/pages-$TAG/" | head -20
 
@@ -469,6 +581,14 @@ jobs:
           # Update all page paths from ../pages-dev/ to ../pages-vX.Y.Z/
           sed -i "s|path: \.\./pages-dev/|path: ../pages-$TAG/|g" "$VERSION_FILE"
 
+          # Revert the Reference tab's General variant to the shared source:
+          # it is always-current across versions (release metadata is
+          # cumulative — each page carries per-release sections), so its pages
+          # render from pages-dev in every version. The Kubernetes API and
+          # Components variants stay on the frozen snapshot (CRD fields and
+          # config flags are genuinely per-version).
+          yq -i "(.navigation[] | select(.tab == \"reference\") | .variants[] | select(.title == \"General\") | .. | select(has(\"path\")).path) |= sub(\"\.\./pages-$TAG/\", \"../pages-dev/\")" "$VERSION_FILE"
+
           # Keep cross-navigation links within the selected documentation version.
           sed -i "s|href: /dynamo/dev/|href: /dynamo/$TAG/|g" "$VERSION_FILE"
 
@@ -483,39 +603,34 @@ jobs:
 
           echo "Updating $DOCS_FILE to include $TAG..."
 
-          # Check if version already in docs.yml
-          DOCS_IDX=$(yq '.products | to_entries | map(select(.value.display-name == "Docs")) | .[0].key' "$DOCS_FILE")
-          if [ "$DOCS_IDX" = "null" ]; then
-            echo "::error::Docs product not found in $DOCS_FILE"
-            exit 1
-          fi
-
-          if yq ".products[$DOCS_IDX].versions[] | select(.display-name == \"$TAG\")" "$DOCS_FILE" | grep -q .; then
+          if yq ".versions[] | select(.display-name == \"$TAG\")" "$DOCS_FILE" | grep -q .; then
             echo "Version $TAG already in docs.yml, skipping update"
             exit 0
           fi
 
-          # Find the index of the "dev" entry and insert new version right after it
-          DEV_IDX=$(yq ".products[$DOCS_IDX].versions | to_entries | map(select(.value.display-name == \"dev\")) | .[0].key" "$DOCS_FILE")
+          # Find the dev entry and insert the release immediately after it,
+          # preserving Latest at index 0.
+          DEV_IDX=$(yq '.versions | to_entries | map(select(.value.display-name == "dev")) | .[0].key' "$DOCS_FILE")
+          if [ "$DEV_IDX" = "null" ]; then
+            echo "::error::dev version not found in $DOCS_FILE"
+            exit 1
+          fi
           INSERT_IDX=$((DEV_IDX + 1))
 
-          yq -i "
-            .products[$DOCS_IDX].versions |= (
-              .[:$INSERT_IDX] +
-              [{\"display-name\": \"$TAG\", \"path\": \"./versions/$TAG.yml\", \"slug\": \"$TAG\", \"availability\": \"stable\"}] +
-              .[$INSERT_IDX:]
+          TAG="$TAG" INSERT_IDX="$INSERT_IDX" yq -i '
+            .versions |= (
+              .[:env(INSERT_IDX)] +
+              [{"display-name": env(TAG), "path": ("./versions/" + env(TAG) + ".yml"), "slug": env(TAG), "availability": "stable"}] +
+              .[env(INSERT_IDX):]
             )
-          " "$DOCS_FILE"
+          ' "$DOCS_FILE"
 
-          # Update the top-level entry to point to the new version
-          yq -i ".products[$DOCS_IDX].path = \"./versions/$TAG.yml\"" "$DOCS_FILE"
+          # Point the Latest entry at the new release.
+          yq -i ".versions[0].path = \"./versions/$TAG.yml\"" "$DOCS_FILE"
+          yq -i ".versions[0].display-name = \"Latest ($TAG)\"" "$DOCS_FILE"
 
-          # Update the "Latest" entry to point to the new version
-          yq -i ".products[$DOCS_IDX].versions[0].path = \"./versions/$TAG.yml\"" "$DOCS_FILE"
-          yq -i ".products[$DOCS_IDX].versions[0].display-name = \"Latest ($TAG)\"" "$DOCS_FILE"
-
-          echo "Updated Docs product versions:"
-          yq ".products[$DOCS_IDX].versions" "$DOCS_FILE"
+          echo "Updated versions:"
+          yq '.versions' "$DOCS_FILE"
 
       - name: Commit and push changes
         run: |
