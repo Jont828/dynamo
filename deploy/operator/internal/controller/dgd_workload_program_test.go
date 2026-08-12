@@ -680,7 +680,7 @@ func TestComponentWorkloadsReconciler_PreserveExistingDCDState(t *testing.T) {
 		},
 		{
 			name:    "new DCD keeps its inferred backend and remains gated",
-			dcdName: "vllm-disagg-planner-decode-new",
+			dcdName: "vllm-disagg-planner-vllmdecodeworker-new",
 			checkpointInfo: &checkpoint.CheckpointInfo{
 				Enabled:          true,
 				AutomaticCapture: true,
