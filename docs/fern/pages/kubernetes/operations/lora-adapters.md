@@ -89,8 +89,8 @@ The following Kubernetes and local workflows use vLLM. For the aggregated SGLang
             containers:
             - name: main
               image: ${RUNTIME_IMAGE}
-      - name: decode
-        type: decode
+      - name: worker
+        type: worker
         replicas: 1
         podTemplate:
           spec:
@@ -228,7 +228,7 @@ The following Kubernetes and local workflows use vLLM. For the aggregated SGLang
         Port-forward the worker system port and POST to `/v1/loras`:
 
         ```bash
-        kubectl port-forward svc/vllm-agg-lora-decode 9090:9090 -n ${NAMESPACE}
+        kubectl port-forward svc/vllm-agg-lora-worker 9090:9090 -n ${NAMESPACE}
         ```
 
         ```bash
