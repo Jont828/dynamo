@@ -27,7 +27,17 @@ Run from the repository root:
 
 ```bash
 git status --short --branch
-git branch --show-current
+
+branch="$(git branch --show-current)"
+if [ -z "$branch" ]; then
+  echo 'Detached HEAD: check out a named branch before opening a pull request.' >&2
+  exit 1
+fi
+if [ "$branch" = 'main' ]; then
+  echo 'Open the pull request from a non-main branch.' >&2
+  exit 1
+fi
+
 git remote -v
 git fetch upstream main
 git log --oneline upstream/main..HEAD
@@ -35,9 +45,11 @@ git diff --stat upstream/main...HEAD
 git diff --check upstream/main...HEAD
 ```
 
+Reuse `$branch` for every later step instead of re-reading the current branch.
+
 Stop and explain the problem when:
 
-- the current branch is `main` or has no commits beyond `upstream/main`;
+- the branch has no commits beyond `upstream/main`;
 - tracked changes are uncommitted;
 - the branch contains changes unrelated to the requested pull request; or
 - `upstream` does not resolve to `ai-dynamo/dynamo`.
@@ -46,15 +58,30 @@ Ignore unrelated untracked files. Never add, commit, delete, or include them.
 
 ## 2. Verify Every Commit
 
-Dynamo requires a Developer Certificate of Origin trailer on every commit. Check all branch commits:
+Dynamo requires a Developer Certificate of Origin trailer on every commit. Verify each branch commit
+carries a `Signed-off-by:` trailer matching that commit's author identity:
 
 ```bash
-git log --format='%h %s%n%(trailers:key=Signed-off-by)' upstream/main..HEAD
+while read -r commit; do
+  author="$(git show -s --format='%an <%ae>' "$commit")"
+  signoffs="$(git show -s --format='%(trailers:key=Signed-off-by,valueonly,unfold)' "$commit")"
+
+  if ! printf '%s\n' "$signoffs" | grep -Fxqi -- "$author"; then
+    echo "$commit is missing a Signed-off-by trailer matching $author" >&2
+    exit 1
+  fi
+done < <(git rev-list upstream/main..HEAD)
 ```
 
-Each commit must contain a `Signed-off-by:` trailer matching its author identity. A cryptographic
-GPG or SSH signature is optional and does not replace DCO sign-off. If sign-off is missing, stop and
-show the appropriate repair command; do not rewrite published history without explicit approval.
+The repository's `scripts/dco_check.py` commit-msg hook only enforces that a `Signed-off-by:` line is
+present, so the loop above is the stricter local check; report a mismatch rather than treating hook
+success as sufficient. A cryptographic GPG or SSH signature is optional and does not replace DCO
+sign-off.
+
+When sign-off is missing, stop and show the appropriate repair command, such as
+`git commit --amend --no-edit -s` for the last commit or
+`git rebase --signoff upstream/main` for a range; do not rewrite published history without explicit
+approval.
 
 Review the actual patch before drafting the pull request:
 
@@ -86,25 +113,33 @@ feat(skills): add upstream submission workflows
 
 ## 4. Draft the Body
 
-Read `.github/pull_request_template.md` before drafting because it can change. At minimum, include
-the repository-required sections:
+Read `.github/pull_request_template.md` before drafting because it can change. The current template
+requires these sections:
 
 ```markdown
-## Summary
+## Overview:
 
-- <what changed and why>
+<what changed and why>
 
-## Validation
+## Details:
 
-- `<command>`
+<implementation details, including validation such as `<command>` and its result>
+
+## Where should the reviewer start?
+
+<the files or entry points to read first>
 
 ## Related Issues
 
 - Closes #<issue>
 ```
 
-When there is no related issue, use the template's explicit no-issue confirmation instead of
-inventing one:
+Report validation inside `## Details:` rather than adding a separate `Validation` heading, so the
+body stays template-compatible while still recording which checks ran.
+
+`## Related Issues` takes exactly one path. Use `Closes #<issue>` when the pull request should close
+the issue, `Relates to #<issue>` when it references, depends on, or partially addresses one, or the
+template's no-issue confirmation when there is none. Delete the paths that do not apply:
 
 ```markdown
 ## Related Issues
@@ -112,42 +147,70 @@ inventing one:
 - [x] Confirmed — no related issue
 ```
 
-Include useful details and a reviewer starting point when the current template requests them. Use
-`Not run (<reason>)` for relevant checks that were not run. Do not include placeholder text.
+Use `Not run (<reason>)` for relevant checks that were not run. Do not include placeholder text such
+as `#XXXX`.
 
-Write the final body to a temporary file so quoting and Markdown remain intact.
+Write the final body to a unique private temporary file so quoting and Markdown remain intact:
+
+```bash
+pr_body_file="$(mktemp "${TMPDIR:-/tmp}/dynamo-pr-body.XXXXXX")"
+chmod 600 "$pr_body_file"
+trap 'rm -f "$pr_body_file"' EXIT
+
+cat >"$pr_body_file" <<'EOF'
+<final pull request body>
+EOF
+```
 
 ## 5. Push and Open
 
-Confirm GitHub authentication and determine the fork owner:
+Confirm GitHub authentication and derive the head repository from the exact `origin` remote rather
+than from the current directory's default repository:
 
 ```bash
 gh auth status
-gh repo view --json nameWithOwner
-gh repo view ai-dynamo/dynamo --json defaultBranchRef
+
+origin_repo="$(gh repo view "$(git remote get-url origin)" \
+  --json nameWithOwner,isFork,parent \
+  --jq '.nameWithOwner')"
+origin_owner="${origin_repo%%/*}"
 ```
 
-Push the current branch to the contributor's fork without force:
+`origin` is a valid head repository when it is `ai-dynamo/dynamo` itself — a feature branch pushed
+directly to upstream is legitimate — or a fork whose parent is `ai-dynamo/dynamo`. Stop when it is
+neither:
 
 ```bash
-git push -u origin "$(git branch --show-current)"
+gh repo view "$(git remote get-url origin)" --json nameWithOwner,isFork,parent \
+  --jq 'select(.nameWithOwner == "ai-dynamo/dynamo"
+    or (.isFork and .parent.nameWithOwner == "ai-dynamo/dynamo"))
+    | .nameWithOwner'
+```
+
+Push the captured branch to `origin` without force:
+
+```bash
+git push -u origin "$branch"
 ```
 
 If an open pull request already exists for the branch, report it instead of creating a duplicate:
 
 ```bash
-gh pr list --repo ai-dynamo/dynamo --head "<owner>:<branch>" --state open
+gh pr list --repo ai-dynamo/dynamo --head "$origin_owner:$branch" --state open
 ```
 
-Open the pull request explicitly against upstream `main`:
+Open the pull request explicitly against upstream `main`, reusing the same derived owner, captured
+branch, and quoted title and body file:
 
 ```bash
+title='<type(scope): summary>'
+
 gh pr create \
   --repo ai-dynamo/dynamo \
   --base main \
-  --head "<owner>:<branch>" \
-  --title "<type(scope): summary>" \
-  --body-file /tmp/dynamo-pr-body.md
+  --head "$origin_owner:$branch" \
+  --title "$title" \
+  --body-file "$pr_body_file"
 ```
 
 Add `--draft` only when the user requested a draft or the change is intentionally not ready for

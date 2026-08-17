@@ -99,10 +99,15 @@ Never submit placeholders such as `TBD`, `Enter bug title`, or `XXXX`. Do not fa
 steps, environment data, alternatives, PR size, or affected components. Ask for missing required
 facts when they cannot be established from the conversation or repository.
 
-For public DEP content, remove customer, partner, or company names and replace them with generic
-references unless the user explicitly confirms the names are already public and should be included.
-Use an area exactly from the DEP form's dropdown and apply it as a label in addition to the form's
-DEP labels.
+Every issue created by this skill is public, so review the body of any template before submission.
+Inspect the title, body, and any referenced artifact for credentials, tokens, private URLs, personal
+data, non-public organization or customer names, and sensitive portions of logs, stack traces, or
+environment output. Redact only the sensitive portions and keep the remaining diagnostics, because
+logs and environment details are required fields on several forms. Include an intentionally public
+name only when the user explicitly confirms it is already public and should appear.
+
+For DEPs, use an area exactly from the DEP form's dropdown and apply it as a label in addition to the
+form's DEP labels.
 
 Before submission, show or internally review the final template choice, title, labels, and body for
 completeness and sensitive information.
@@ -121,20 +126,38 @@ asks to proceed.
 
 ## 5. Create the Issue
 
-Write the body to a temporary file and use non-interactive arguments. Pass each template label with
-`--label`:
+Write the reviewed body to a unique private temporary file and use non-interactive arguments. Keep
+user-derived values in quoted shell variables and build the label list as an array; never pass them
+through `eval` or embed them directly in the command:
 
 ```bash
 gh auth status
-gh issue create \
-  --repo ai-dynamo/dynamo \
-  --title '<template prefix><concise title>' \
-  --label '<template label>' \
-  --body-file /tmp/dynamo-issue-body.md
+
+body_file="$(mktemp "${TMPDIR:-/tmp}/dynamo-issue-body.XXXXXX")"
+chmod 600 "$body_file"
+trap 'rm -f "$body_file"' EXIT
+
+# Write the reviewed issue body, then set the reviewed title and template labels.
+cat >"$body_file" <<'EOF'
+<reviewed issue body>
+EOF
+
+title='<template prefix><concise title>'
+labels=('<template label>')
+
+args=(--repo ai-dynamo/dynamo --title "$title" --body-file "$body_file")
+for label in "${labels[@]}"; do
+  args+=(--label "$label")
+done
+
+gh issue create "${args[@]}"
 ```
 
-For a DEP, also pass the selected area label. Prefer explicit title, labels, and body over `--template`
-so the submitted issue is deterministic and can be reviewed before the external write.
+Quoting the title this way keeps values such as `Fix user's cache` intact, and the array supports any
+number of labels.
+
+For a DEP, add the selected area label to `labels`. Prefer explicit title, labels, and body over
+`--template` so the submitted issue is deterministic and can be reviewed before the external write.
 
 Create the issue only when the user has asked to file or open it. If the user asked only for a draft,
 return the proposed title, labels, and body without calling `gh issue create`.
