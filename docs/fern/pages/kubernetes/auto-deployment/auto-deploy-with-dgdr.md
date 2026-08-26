@@ -405,10 +405,6 @@ kubectl get dgdr <name> -n <namespace> \
 
 3. Delete the temporary DGDR, then create the final DGDR with overrides that use those names.
 
-Generated vLLM DGDs use `worker` for aggregated deployments and `prefill` and `decode` for
-disaggregated deployments. Legacy names such as `VllmWorker`, `VllmPrefillWorker`, and
-`VllmDecodeWorker` do not match newly generated components.
-
 The DGDR spec becomes immutable after profiling starts, so you cannot add or change overrides on
 the temporary resource. An override can modify only components already present in the generated
 DGD; it cannot add a new worker, EPP, or other topology component. See
