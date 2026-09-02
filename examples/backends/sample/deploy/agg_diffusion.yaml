@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# CPU-only sample diffusion deployment. This is the Kubernetes equivalent of
+# examples/backends/sample/launch/agg_diffusion.sh and requires no model or GPU.
+
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: sample-diffusion-agg
+spec:
+  components:
+  - name: Frontend
+    type: frontend
+    replicas: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/dynamo:my-tag
+          command:
+          - python3
+          - -m
+          - dynamo.frontend
+  - name: SampleDiffusionWorker
+    type: worker
+    replicas: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/dynamo:my-tag
+          command:
+          - python3
+          - -m
+          - dynamo.common.backend.sample_diffusion_main
+          args:
+          - --model-name
+          - sample-diffusion-model
+          - --endpoint-types
+          - images

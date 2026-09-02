@@ -45,6 +45,17 @@ If you want to see advanced, framework-specific deployment patterns and best pra
 - **[SGLang](https://github.com/ai-dynamo/dynamo/tree/main/examples/backends/sglang)** – SGLang integration examples and workflows
 - **[TensorRT-LLM](https://github.com/ai-dynamo/dynamo/tree/main/examples/backends/trtllm)** – TensorRT-LLM workflows and optimizations
 
+## Diffusion Examples
+
+Deploy image, video, audio, and diffusion-language-model workloads locally or with Kubernetes:
+
+- **[Diffusion workflows](../docs/fern/pages/use-cases/diffusion/overview.md)** - Supported modalities and backend combinations
+- **[vLLM-Omni DGDs](backends/vllm/deploy/README.md#8-vllm-omni-generative-media-deployments)** - Image, video, audio, LoRA, and GLM-Image deployments
+- **[SGLang diffusion DGDs](backends/sglang/deploy/README.md#diffusion-deployments)** - FLUX, Wan, and LLaDA deployments
+- **[TensorRT-LLM diffusion DGDs](backends/trtllm/deploy/README.md#diffusion-deployments)** - FLUX and Wan deployments
+- **[FastVideo](diffusers/README.md)** - Custom text-to-video worker with local and Kubernetes paths
+- **[Sample diffusion backend](backends/sample/README.md)** - CPU-only end-to-end image generation
+
 ## Deployment Examples
 
 Platform-specific manifests and templates for production environments. Deployment guides live under `docs/kubernetes/cloud-providers/`; each examples folder links to its guide.

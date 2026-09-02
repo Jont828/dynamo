@@ -34,6 +34,15 @@ High-performance deployment with separated prefill and decode workers.
 - `SGLangPrefillWorker`: Specialized prefill-only worker (`--disaggregation-mode prefill`)
 - Communication via NIXL transfer backend (`--disaggregation-transfer-backend nixl`)
 
+## Diffusion Deployments
+
+- `agg_image_diffusion.yaml`: FLUX.1-schnell text-to-image serving.
+- `agg_video_diffusion.yaml`: Wan 2.1 1.3B text-to-video and image-to-video serving.
+- `agg_llm_diffusion.yaml`: LLaDA 2.0 diffusion language model serving.
+
+Generated media is stored in a size-limited worker-local `emptyDir`. Request `b64_json` output, or
+replace the filesystem URL with object storage and set a public media HTTP URL.
+
 ## CRD Structure
 
 All templates use the **DynamoGraphDeployment** CRD:

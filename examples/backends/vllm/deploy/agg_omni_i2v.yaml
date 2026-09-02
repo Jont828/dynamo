@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Wan 2.2 image-to-video serving with vLLM-Omni. This is the Kubernetes
+# equivalent of launch/agg_omni_i2v.sh.
+# Request response_format=b64_json unless media storage is externally served.
+
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: vllm-omni-i2v-agg
+spec:
+  backendFramework: vllm
+  components:
+  - name: Frontend
+    type: frontend
+    replicas: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/vllm-runtime:my-tag
+  - name: OmniImageToVideoWorker
+    type: worker
+    replicas: 1
+    sharedMemorySize: 16Gi
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/vllm-runtime:my-tag
+          command:
+          - python3
+          - -m
+          - dynamo.vllm.omni
+          args:
+          - --model
+          - Wan-AI/Wan2.2-TI2V-5B-Diffusers
+          - --output-modalities
+          - video
+          - --media-output-fs-url
+          - file:///tmp/dynamo_media
+          - --enforce-eager
+          envFrom:
+          - secretRef:
+              name: hf-token-secret
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+          - name: media-output
+            mountPath: /tmp/dynamo_media
+        volumes:
+        - name: media-output
+          emptyDir:
+            sizeLimit: 40Gi

@@ -1,0 +1,119 @@
+Diffusion DGD implementation status
+Date: September 2, 2026
+Repository: ai-dynamo/dynamo
+
+Summary
+-------
+The diffusion launcher-to-DGD implementation is draft-complete. Thirteen new
+DynamoGraphDeployment manifests have been added locally, and the existing
+FastVideo DGD completes the scoped set of fourteen launcher mappings. The
+manifests and related docs have not been GPU-deployed or fully smoke-tested.
+
+New DGD manifests
+-----------------
+Sample backend:
+- examples/backends/sample/deploy/agg_diffusion.yaml
+
+SGLang:
+- examples/backends/sglang/deploy/agg_image_diffusion.yaml
+- examples/backends/sglang/deploy/agg_video_diffusion.yaml
+- examples/backends/sglang/deploy/agg_llm_diffusion.yaml
+
+TensorRT-LLM:
+- examples/backends/trtllm/deploy/agg_image_diffusion.yaml
+- examples/backends/trtllm/deploy/agg_video_diffusion.yaml
+
+vLLM-Omni:
+- examples/backends/vllm/deploy/agg_omni_image.yaml
+- examples/backends/vllm/deploy/agg_omni_video.yaml
+- examples/backends/vllm/deploy/agg_omni_i2v.yaml
+- examples/backends/vllm/deploy/agg_omni_audio.yaml
+- examples/backends/vllm/deploy/agg_omni_image_lora.yaml
+- examples/backends/vllm/deploy/disagg_omni_glm_image.yaml
+- examples/backends/vllm/deploy/disagg_omni_glm_image_nixl.yaml
+
+Existing DGD retained:
+- examples/diffusers/deploy/agg.yaml
+
+FLUX example
+------------
+The portable SGLang FLUX manifest is:
+- examples/backends/sglang/deploy/agg_image_diffusion.yaml
+- DGD name: flux-1-schnell-sglang-agg
+- Model: black-forest-labs/FLUX.1-schnell
+
+It was generalized from the known-working cluster deployment and excludes its
+AKS node-pool selectors, private Lustre PVC, namespace, and model-preload job.
+It uses one GPU and worker-local, size-limited media storage. Clients should
+request response_format=b64_json unless external object storage and a public
+media HTTP URL are configured.
+
+Documentation changes
+---------------------
+Updated:
+- examples/README.md
+- examples/backends/sglang/deploy/README.md
+- examples/backends/trtllm/deploy/README.md
+- examples/backends/vllm/deploy/README.md
+- docs/fern/pages/recipes/kubernetes-templates/dgd/sglang.mdx
+- docs/fern/pages/recipes/kubernetes-templates/dgd/tensorrt-llm.mdx
+- docs/fern/pages/recipes/kubernetes-templates/dgd/vllm.mdx
+- docs/fern/pages/reference/general/examples.md
+- docs/fern/pages/use-cases/diffusion/overview.md
+
+Added:
+- examples/backends/sample/README.md
+
+Also corrected the stale header in
+examples/backends/trtllm/launch/agg_image_diffusion.sh so it names the launch
+script's actual default model, black-forest-labs/FLUX.2-klein-4B.
+
+Completed validation
+--------------------
+- All thirteen new manifests parse successfully with PyYAML.
+- All thirteen new DGDs pass the repository's nvidia.com/v1beta1 OpenAPI schema
+  from deploy/operator/config/crd/bases/nvidia.com_dynamographdeployments.yaml.
+- Every scoped launcher maps to a new or existing DGD.
+- git diff --check passed.
+- The recipe catalog validator passed.
+- No docs-lint errors attributable to the modified Fern pages were identified
+  during review; the full-tree check remains blocked by unrelated files below.
+
+Outstanding validation and review
+---------------------------------
+- No new DGD has been deployed to Kubernetes or smoke-tested on a GPU cluster.
+- The GLM-Image multi-Pod/NIXL manifests need deployment validation, including
+  stage discovery, connector setup, and cross-node anti-affinity.
+- The vLLM-Omni LoRA manifest needs an end-to-end load/generate/unload test.
+- Model memory requirements and one-GPU assumptions should be reconfirmed on
+  current main and the selected runtime images.
+- Full `fern check` is blocked in this checkout by missing generated Python and
+  Rust API pages that are unrelated to these changes.
+- Full docs lint reports unrelated pre-existing/untracked docs files without
+  SPDX headers; those files must not be swept into this change.
+- `fern docs broken-links` has not been completed.
+
+Known runtime concerns to investigate
+-------------------------------------
+1. SGLang image diffusion currently uses a truthiness fallback for
+   nvext.guidance_scale. An explicit FLUX.1-schnell guidance scale of 0.0 may
+   be replaced by the default 7.5. This should use an explicit None check and
+   have regression coverage if fixed in this work.
+2. The SGLang image-diffusion health payload places num_inference_steps and
+   guidance_scale at the top level even though the handler reads them from
+   nvext. On runtime 1.5+, canary checks may therefore run the 50-step default
+   instead of the intended one-step request.
+3. The local GLM-Image disaggregated launcher uses process-local shared memory.
+   The Kubernetes DGD intentionally uses the repository NIXL stage config
+   because separate Pods cannot share that connector.
+
+Scope exclusions
+----------------
+No new diffusion DGD was created for realtime audio/transcription scripts,
+validation helpers, or examples/common/launch_utils.sh. Those are not distinct
+diffusion deployments.
+
+Handoff
+-------
+See diffusion-dgd-handoff.txt for the full implementation prompt, file mapping,
+portability requirements, documentation steps, and validation checklist.

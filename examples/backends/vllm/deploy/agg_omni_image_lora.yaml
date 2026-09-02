@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Stable Diffusion XL image serving with dynamic LoRA support through
+# vLLM-Omni. This is the Kubernetes equivalent of
+# launch/lora/omni/omni_lora_agg.sh.
+
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: vllm-omni-image-lora-agg
+spec:
+  backendFramework: vllm
+  components:
+  - name: Frontend
+    type: frontend
+    replicas: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/vllm-runtime:my-tag
+  - name: OmniImageLoraWorker
+    type: worker
+    replicas: 1
+    sharedMemorySize: 16Gi
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/vllm-runtime:my-tag
+          command:
+          - python3
+          - -m
+          - dynamo.vllm.omni
+          args:
+          - --model
+          - stabilityai/stable-diffusion-xl-base-1.0
+          - --output-modalities
+          - image
+          - --enable-lora
+          - --tensor-parallel-size
+          - "1"
+          - --media-output-fs-url
+          - file:///tmp/dynamo_media
+          env:
+          - name: DYN_LORA_ENABLED
+            value: "true"
+          - name: DYN_LORA_PATH
+            value: /tmp/dynamo_loras
+          envFrom:
+          - secretRef:
+              name: hf-token-secret
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+          - name: lora-cache
+            mountPath: /tmp/dynamo_loras
+          - name: media-output
+            mountPath: /tmp/dynamo_media
+        volumes:
+        - name: lora-cache
+          emptyDir: {}
+        - name: media-output
+          emptyDir:
+            sizeLimit: 20Gi

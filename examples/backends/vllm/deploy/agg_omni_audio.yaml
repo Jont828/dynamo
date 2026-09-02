@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Qwen3-TTS text-to-audio serving with vLLM-Omni. This is the Kubernetes
+# equivalent of launch/agg_omni_audio.sh.
+
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: vllm-omni-audio-agg
+spec:
+  backendFramework: vllm
+  components:
+  - name: Frontend
+    type: frontend
+    replicas: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/vllm-runtime:my-tag
+  - name: OmniAudioWorker
+    type: worker
+    replicas: 1
+    sharedMemorySize: 16Gi
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/vllm-runtime:my-tag
+          command:
+          - python3
+          - -m
+          - dynamo.vllm.omni
+          args:
+          - --model
+          - Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+          - --output-modalities
+          - audio
+          - --media-output-fs-url
+          - file:///tmp/dynamo_media
+          - --trust-remote-code
+          - --enforce-eager
+          env:
+          - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+            value: "1"
+          envFrom:
+          - secretRef:
+              name: hf-token-secret
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+          - name: media-output
+            mountPath: /tmp/dynamo_media
+        volumes:
+        - name: media-output
+          emptyDir:
+            sizeLimit: 20Gi

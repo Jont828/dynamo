@@ -13,6 +13,15 @@ Use these examples when you want a concrete starting point instead of a conceptu
 - [Kubernetes Quickstart](../../kubernetes/getting-started/quickstart.mdx) — run a model on Kubernetes with the current recommended path.
 - [CLI Getting Started](../../cli/getting-started/introduction.mdx) — run Dynamo locally from the CLI.
 
+## Diffusion Examples
+
+- [Diffusion workflows](../../use-cases/diffusion/overview.md) — image, video, audio, and text generation across the supported backends.
+- [vLLM-Omni Kubernetes templates](../../recipes/kubernetes-templates/dgd/vllm.mdx#vllm-omni-generative-media) — aggregated and disaggregated generative-media deployments.
+- [SGLang diffusion Kubernetes templates](../../recipes/kubernetes-templates/dgd/sglang.mdx#diffusion) — FLUX, Wan, and LLaDA deployments.
+- [TensorRT-LLM diffusion Kubernetes templates](../../recipes/kubernetes-templates/dgd/tensorrt-llm.mdx#diffusion) — FLUX and Wan deployments.
+- [FastVideo deployment](../../use-cases/diffusion/workflows/text-to-video.md#fastvideo) — custom worker with local and Kubernetes paths.
+- [CPU-only sample diffusion DGD](https://github.com/ai-dynamo/dynamo/blob/main/examples/backends/sample/deploy/agg_diffusion.yaml) — exercise the image API without a model or GPU.
+
 ## Backend Examples
 
 - [vLLM local deployment examples](../../recipes/cli-templates/vllm.mdx) — CLI launch patterns for vLLM.

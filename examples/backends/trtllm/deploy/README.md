@@ -73,6 +73,14 @@ TensorRT-LLM worker. This example uses the conservative engine configuration in
   `experimental.checkpoint.enabled: true` and
   `startupPolicy: WaitForCheckpoint`
 
+## Diffusion Deployments
+
+- `agg_image_diffusion.yaml`: FLUX.2-klein-4B text-to-image serving.
+- `agg_video_diffusion.yaml`: Wan 2.1 1.3B text-to-video serving.
+
+Generated media is stored in a size-limited worker-local `emptyDir`. Request `b64_json` output, or
+replace the filesystem URL with object storage and set a public media HTTP URL.
+
 ## CRD Structure
 
 All templates use the **DynamoGraphDeployment** CRD:

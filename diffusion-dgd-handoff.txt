@@ -1,0 +1,269 @@
+Implement Kubernetes DynamoGraphDeployment examples for every diffusion-oriented local launcher in ai-dynamo/dynamo.
+
+Repository and branch
+---------------------
+- Repository: ai-dynamo/dynamo
+- Start from a clean, current `main` branch (or a feature branch based directly on `main`).
+- Read the root `AGENTS.md` first.
+- Because this changes `examples/` and `docs/`, also read:
+  - `.agents/skills/dynamo-docs/SKILL.md`
+  - `docs/fern/AGENTS.md`
+  - `docs/fern/pages/AGENTS.md`
+  - `docs/fern/pages/community/contributing/documentation/documentation-style-guide.md`
+- Do not edit `docs-website`; it is CI-managed.
+- Do not touch unrelated working-tree changes.
+
+Issues and objective
+--------------------
+This work supports:
+- https://github.com/ai-dynamo/dynamo/issues/13383
+- https://github.com/ai-dynamo/dynamo/issues/13497
+
+Add a portable `nvidia.com/v1beta1` DynamoGraphDeployment for each diffusion-oriented local launch script, and surface those manifests from the existing docs template pages. Preserve the behavior of each launcher while translating local background processes into DGD components.
+
+Scope: launchers and expected manifests
+---------------------------------------
+Create or verify these mappings:
+
+1. CPU sample diffusion
+   - Source: `examples/backends/sample/launch/agg_diffusion.sh`
+   - Add: `examples/backends/sample/deploy/agg_diffusion.yaml`
+   - Components: CPU-only Frontend + SampleDiffusionWorker.
+   - Worker command: `python3 -m dynamo.common.backend.sample_diffusion_main --model-name sample-diffusion-model --endpoint-types images`.
+   - No GPU and no model download.
+
+2. SGLang image diffusion / FLUX
+   - Source: `examples/backends/sglang/launch/image_diffusion.sh`
+   - Add: `examples/backends/sglang/deploy/agg_image_diffusion.yaml`
+   - Use `black-forest-labs/FLUX.1-schnell` for the canonical example, overriding the launcher's current default if necessary.
+   - DGD name: `flux-1-schnell-sglang-agg`.
+   - Preserve:
+     - `--model-path black-forest-labs/FLUX.1-schnell`
+     - `--served-model-name black-forest-labs/FLUX.1-schnell`
+     - `--image-diffusion-worker`
+     - `--media-output-fs-url`
+     - `--trust-remote-code`
+     - `--skip-tokenizer-init`
+     - `--enable-metrics`
+   - One GPU, with a reasonable `sharedMemorySize` such as 16Gi.
+
+3. SGLang video diffusion
+   - Source: `examples/backends/sglang/launch/text-to-video-diffusion.sh`
+   - Add: `examples/backends/sglang/deploy/agg_video_diffusion.yaml`
+   - Translate the default `--wan-size 1b` path:
+     - model `Wan-AI/Wan2.1-T2V-1.3B-Diffusers`
+     - TP 1
+     - `--video-generation-worker`
+     - `--nccl-port 30005`
+   - This worker serves both text-to-video and image-to-video.
+   - One GPU.
+
+4. SGLang diffusion language model
+   - Source: `examples/backends/sglang/launch/diffusion_llada.sh`
+   - Add: `examples/backends/sglang/deploy/agg_llm_diffusion.yaml`
+   - Model: `inclusionAI/LLaDA2.0-mini-preview`.
+   - Preserve `--dllm-algorithm LowConfidence`, `--disable-cuda-graph`, `--disable-overlap-schedule`, `--attention-backend triton`, tokenizer/trust flags, and TP 1.
+   - Do not copy the launcher's hard-coded local `--endpoint dyn://...`; allow the operator-injected Dynamo namespace/component endpoint to be used.
+
+5. TensorRT-LLM image diffusion
+   - Source: `examples/backends/trtllm/launch/agg_image_diffusion.sh`
+   - Add: `examples/backends/trtllm/deploy/agg_image_diffusion.yaml`
+   - Mirror the launcher's actual current default model. At the time of this handoff it is `black-forest-labs/FLUX.2-klein-4B`, even though an older header comment may still say FLUX.1-dev.
+   - Preserve `--modality image_diffusion` and media storage.
+   - One GPU.
+   - Correct the stale launch-script header if it still disagrees with `MODEL_PATH`.
+
+6. TensorRT-LLM video diffusion
+   - Source: `examples/backends/trtllm/launch/agg_video_diffusion.sh`
+   - Add: `examples/backends/trtllm/deploy/agg_video_diffusion.yaml`
+   - Model: `Wan-AI/Wan2.1-T2V-1.3B-Diffusers`.
+   - Preserve `--modality video_diffusion` and media storage.
+   - One GPU.
+
+7. vLLM-Omni image generation
+   - Source: `examples/backends/vllm/launch/agg_omni_image.sh`
+   - Add: `examples/backends/vllm/deploy/agg_omni_image.yaml`
+   - Model `Qwen/Qwen-Image`, output modality `image`, one GPU.
+
+8. vLLM-Omni text-to-video
+   - Source: `examples/backends/vllm/launch/agg_omni_video.sh`
+   - Add: `examples/backends/vllm/deploy/agg_omni_video.yaml`
+   - Model `Wan-AI/Wan2.1-T2V-1.3B-Diffusers`, output modality `video`, one GPU.
+   - Preserve `--enforce-eager` unless the corresponding local launcher no longer needs it.
+
+9. vLLM-Omni image-to-video
+   - Source: `examples/backends/vllm/launch/agg_omni_i2v.sh`
+   - Add: `examples/backends/vllm/deploy/agg_omni_i2v.yaml`
+   - Model `Wan-AI/Wan2.2-TI2V-5B-Diffusers`, output modality `video`, one GPU.
+   - Preserve `--enforce-eager` unless the launcher no longer needs it.
+
+10. vLLM-Omni text-to-audio
+    - Source: `examples/backends/vllm/launch/agg_omni_audio.sh`
+    - Add: `examples/backends/vllm/deploy/agg_omni_audio.yaml`
+    - Model `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`, output modality `audio`, one GPU.
+    - Preserve `--trust-remote-code`, `--enforce-eager`, and `VLLM_ALLOW_LONG_MAX_MODEL_LEN=1` unless the launcher has changed.
+
+11. vLLM-Omni image LoRA
+    - Source: `examples/backends/vllm/launch/lora/omni/omni_lora_agg.sh`
+    - Add: `examples/backends/vllm/deploy/agg_omni_image_lora.yaml`
+    - Model `stabilityai/stable-diffusion-xl-base-1.0`, output modality `image`, one GPU.
+    - Preserve `--enable-lora` and TP 1.
+    - Set `DYN_LORA_ENABLED=true` and provide a writable `DYN_LORA_PATH` such as an `emptyDir` mount.
+    - Keep the manifest source-agnostic; LoRA URIs may be `file://`, `s3://`, or `hf://` depending on user configuration.
+
+12. vLLM-Omni GLM-Image disaggregation
+    - Source: `examples/backends/vllm/launch/disagg_omni_glm_image.sh`
+    - Add: `examples/backends/vllm/deploy/disagg_omni_glm_image.yaml`
+    - Components:
+      - Frontend
+      - OmniRouter (CPU-only worker component)
+      - AR stage, stage ID 0, one GPU
+      - DiT stage, stage ID 1, one GPU
+    - Important: the local launcher uses process-local shared memory, which does not work between Kubernetes Pods. The DGD must use an inter-Pod connector configuration, preferably the existing NIXL config at `examples/backends/vllm/launch/stage_configs/glm_image_nixl.yaml`.
+    - The published vLLM runtime image includes `examples/` under `/workspace/examples`, so the DGD can reference `/workspace/examples/backends/vllm/launch/stage_configs/glm_image_nixl.yaml`. Reconfirm this against the current container template before relying on it.
+    - Set the stage-config interpolation environment consistently for router and stages: AR_TP, AR_GPUS, DIT_TP, and DIT_GPUS.
+
+13. vLLM-Omni cross-node GLM-Image over NIXL
+    - Source: `examples/backends/vllm/launch/disagg_omni_glm_image_nixl.sh`
+    - Add: `examples/backends/vllm/deploy/disagg_omni_glm_image_nixl.yaml`
+    - Use the same four-component topology and NIXL stage config as above.
+    - The generic example should use CUDA for both stages; do not hard-code an Intel XPU resource setup unless adding a separate tested XPU variant.
+    - Add required pod anti-affinity so AR and DiT land on different Kubernetes nodes.
+    - Use the generated pod label `nvidia.com/dynamo-component` to select the AR component and `kubernetes.io/hostname` as the topology key.
+    - Document that UCX/NIXL network selection remains cluster-specific.
+
+Already covered
+---------------
+`examples/diffusers/local/run_local.sh` already has a Kubernetes DGD at `examples/diffusers/deploy/agg.yaml`. Do not create a duplicate; verify and retain the existing mapping.
+
+Out of scope
+------------
+Do not create diffusion DGDs for:
+- `examples/backends/vllm/launch/agg_omni_realtime.sh`
+- realtime transcription clients or launchers
+- `validate_omni_lora_agg.sh`
+- `examples/common/launch_utils.sh`
+
+These are realtime/support/validation utilities, not distinct diffusion deployments.
+
+Portable DGD conventions
+------------------------
+- Use `apiVersion: nvidia.com/v1beta1` and `kind: DynamoGraphDeployment`.
+- Set `spec.backendFramework` to `sglang`, `vllm`, or `trtllm` where applicable.
+- Use the existing backend template style in:
+  - `examples/backends/sglang/deploy/agg.yaml`
+  - `examples/backends/vllm/deploy/agg.yaml`
+  - `examples/backends/trtllm/deploy/agg.yaml`
+- Use image placeholders consistent with neighboring examples, such as:
+  - `my-registry/sglang-runtime:my-tag`
+  - `my-registry/vllm-runtime:my-tag`
+  - `my-registry/trtllm-runtime:my-tag`
+- Keep frontend and worker runtime versions aligned.
+- Do not copy cluster-specific values from a private deployment:
+  - no AKS `agentpool` selectors
+  - no H100/B200-only affinity in a generic one-GPU example
+  - no private PVC names, Lustre subpaths, namespaces, registries, or pull secrets
+- Reference `hf-token-secret` where model access may require it, consistent with neighboring examples.
+- Request both GPU limits and requests when adding a GPU worker.
+- Use a reasonable `sharedMemorySize` for diffusion workers.
+- Keep optional model-cache PVC/preload jobs out of the minimal DGD, or document them as optional rather than required.
+
+Generated-media storage
+-----------------------
+Local launchers commonly use `file:///tmp/dynamo_media`, but worker-local files are not externally retrievable from a Kubernetes client.
+
+For portable examples:
+- Mount a size-limited `emptyDir` at `/tmp/dynamo_media` (20Gi for images/audio, larger for video is reasonable).
+- Use `response_format=b64_json` in smoke-test examples.
+- Explain that URL responses require object storage such as S3 plus `--media-output-http-url`.
+- A shared PVC by itself does not make returned files publicly accessible.
+- Avoid implying that worker-local `file://` URLs work outside the Pod.
+
+FLUX.1-schnell details to verify
+--------------------------------
+The known working cluster-specific deployment was named `flux-1-schnell-sglang-agg-h100`; the portable example should remove H100/AKS/PVC-specific configuration and use `flux-1-schnell-sglang-agg`.
+
+The cluster deployment used:
+- one H100 80 GB GPU
+- SGLang `--image-diffusion-worker`
+- a preloaded shared Hugging Face cache
+- `response_format=b64_json`
+- four inference steps
+
+Do not add `--enable-torch-compile` without testing it. A previously tested Dynamo/SGLang version absorbed the same-named flag in the LLM argument parser rather than forwarding it to the diffusion configuration.
+
+Also inspect these two runtime correctness details before documenting canonical Schnell request parameters:
+
+1. `components/src/dynamo/sglang/request_handlers/image_diffusion/image_diffusion_handler.py` has used logic equivalent to:
+   `guidance_scale = nvext.guidance_scale or DEFAULT_GUIDANCE_SCALE`
+   This prevents an explicit Schnell value of `0.0` from being honored. If still present, fix it using an explicit `is not None` check and add a unit test, or avoid claiming that `guidance_scale: 0.0` works.
+
+2. `components/src/dynamo/sglang/health_check.py` has placed image diffusion `num_inference_steps` and `guidance_scale` at the top level even though the handler reads them from `nvext`. On runtime 1.5+, worker canary health checks are enabled and have a short timeout; a nominal one-step health check can therefore fall back to 50 steps. If still present, nest the fields under `nvext` and add/update a focused unit test. Keep any runtime fixes focused and separate from unrelated refactoring.
+
+Documentation and surfacing
+----------------------------
+Update the canonical sources rather than creating duplicate prose.
+
+1. Backend deployment READMEs
+   - `examples/backends/sglang/deploy/README.md`: list FLUX, Wan, and LLaDA DGDs.
+   - `examples/backends/trtllm/deploy/README.md`: list image/video diffusion DGDs.
+   - `examples/backends/vllm/deploy/README.md`: list vLLM-Omni image, video, I2V, audio, LoRA, and GLM-Image DGDs.
+   - Add `examples/backends/sample/README.md` if the sample backend still lacks one, and document the local and Kubernetes sample diffusion paths.
+
+2. Top-level examples index
+   - Update `examples/README.md` with a Diffusion Examples section linking the workflow docs and each backend's deployment examples.
+
+3. Fern Kubernetes template pages
+   - Add a Diffusion section to `docs/fern/pages/recipes/kubernetes-templates/dgd/sglang.mdx` and embed all three SGLang manifests using `<Code src="..." ... />`.
+   - Add a vLLM-Omni Generative Media section to `docs/fern/pages/recipes/kubernetes-templates/dgd/vllm.mdx` and embed the vLLM-Omni manifests.
+   - Add a Diffusion section to `docs/fern/pages/recipes/kubernetes-templates/dgd/tensorrt-llm.mdx` and embed both TensorRT-LLM manifests.
+
+4. Diffusion overview and examples index
+   - Update `docs/fern/pages/use-cases/diffusion/overview.md`; it currently may say built-in diffusion backends do not have Kubernetes recipes. Replace that statement with links to the new backend DGD template sections.
+   - Update `docs/fern/pages/reference/general/examples.md` with a Diffusion Examples section, including the CPU-only sample DGD and existing FastVideo path.
+
+5. Do not add a new Fern nav page unless needed. The existing template and overview pages are already in `docs/fern/index.yml`.
+
+Validation
+----------
+At minimum:
+
+1. Parse every new YAML document with PyYAML.
+2. Validate each DGD against the `v1beta1` OpenAPI schema in:
+   `deploy/operator/config/crd/bases/nvidia.com_dynamographdeployments.yaml`
+   Using Python `jsonschema` is sufficient if kubeconform is unavailable.
+3. Run:
+   `git diff --check`
+4. Run the docs lint on the relevant docs tree/files. The standard command is:
+   `python3 docs/fern/scripts/docs_lint.py --scan docs`
+   If the checkout has unrelated local docs files, distinguish those baseline failures from new failures.
+5. Run:
+   `python3 docs/fern/pages/recipes/_catalog/validate.py`
+6. Run from `docs/fern/`:
+   `fern check`
+   `fern docs broken-links`
+   Generated Python/Rust API pages may need to be generated first on a clean checkout; do not “fix” unrelated missing generated files in this PR.
+7. Confirm every scoped launcher maps to an existing DGD and that the FastVideo mapping remains existing rather than duplicated.
+8. If runtime fixes are made for SGLang guidance or health checks, run the focused SGLang unit tests and add regression coverage.
+
+Review checklist
+----------------
+- Every new file has the correct 2025-2026 SPDX header form.
+- No cluster names, node-pool names, private PVCs, registries, workload details, or credentials are committed.
+- Commands and model names match the corresponding launch scripts as they exist on the branch being changed.
+- Media URL limitations are explicit.
+- The ordinary GLM-Image DGD does not accidentally use process-local SHM across Pods.
+- The cross-node GLM-Image DGD actually forces AR and DiT onto different nodes.
+- The LoRA DGD initializes the Dynamo LoRA manager, not only the underlying vLLM `--enable-lora` flag.
+- New manifests are embedded or linked from the docs site rather than left discoverable only through GitHub browsing.
+- Avoid unrelated formatting or generated-file churn.
+
+Expected deliverable
+--------------------
+Produce a focused PR with:
+- the new DGD manifests,
+- minimal README/docs surfacing,
+- any narrowly required SGLang diffusion correctness fixes with tests,
+- a PR title following Conventional Commits, for example:
+  `docs(examples): add Kubernetes diffusion deployment templates`
+- a PR description containing `Summary` and `Validation` sections.

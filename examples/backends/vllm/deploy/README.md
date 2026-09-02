@@ -59,6 +59,19 @@ Aggregated deployment that offloads KV cache to a per-node LMCache MP DaemonSet,
 - `VllmDecodeWorker`: Single worker, `hostIPC: true` + `runAsUser: 0` (required for cross-Pod CUDA IPC with the LMCache server)
 - `LMCacheEngine` (separate CR): per-node DaemonSet that imports the worker's KV-cache IPC handles and serves cache hits over ZMQ
 
+### 8. **vLLM-Omni Generative Media Deployments**
+
+- `agg_omni_image.yaml`: Qwen-Image text-to-image serving.
+- `agg_omni_video.yaml`: Wan 2.1 text-to-video serving.
+- `agg_omni_i2v.yaml`: Wan 2.2 image-to-video serving.
+- `agg_omni_audio.yaml`: Qwen3-TTS text-to-audio serving.
+- `agg_omni_image_lora.yaml`: Stable Diffusion XL image serving with dynamic LoRA adapters.
+- `disagg_omni_glm_image.yaml`: GLM-Image AR/DiT disaggregation across Kubernetes Pods.
+- `disagg_omni_glm_image_nixl.yaml`: Cross-node GLM-Image with NIXL and required stage anti-affinity.
+
+The disaggregated manifests use the NIXL stage configuration because Kubernetes Pods cannot share
+the process-local shared-memory connector used by the corresponding single-host launcher.
+
 ## CRD Structure
 
 All templates use the **DynamoGraphDeployment** CRD:

@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# LLaDA 2.0 diffusion-language-model serving with SGLang. This is the
+# Kubernetes equivalent of launch/diffusion_llada.sh.
+
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: sglang-llada-agg
+spec:
+  backendFramework: sglang
+  components:
+  - name: Frontend
+    type: frontend
+    replicas: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/sglang-runtime:my-tag
+  - name: DiffusionLanguageWorker
+    type: worker
+    replicas: 1
+    sharedMemorySize: 16Gi
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/sglang-runtime:my-tag
+          command:
+          - python3
+          - -m
+          - dynamo.sglang
+          args:
+          - --model-path
+          - inclusionAI/LLaDA2.0-mini-preview
+          - --tp-size
+          - "1"
+          - --skip-tokenizer-init
+          - --trust-remote-code
+          - --enable-metrics
+          - --disable-cuda-graph
+          - --disable-overlap-schedule
+          - --attention-backend
+          - triton
+          - --dllm-algorithm
+          - LowConfidence
+          envFrom:
+          - secretRef:
+              name: hf-token-secret
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"

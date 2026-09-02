@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Aggregated image diffusion serving with TensorRT-LLM backend.
-# Uses FLUX.1-dev by default (1 GPU).
+# Uses FLUX.2-klein-4B by default (1 GPU).
 
 set -e
 trap 'echo Cleaning up...; kill 0' EXIT

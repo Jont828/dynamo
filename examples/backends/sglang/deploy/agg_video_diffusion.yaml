@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Wan 2.1 1.3B text-to-video and image-to-video serving with SGLang. This is
+# the Kubernetes equivalent of launch/text-to-video-diffusion.sh --wan-size 1b.
+# Request response_format=b64_json unless media storage is externally served.
+
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: sglang-wan-video-agg
+spec:
+  backendFramework: sglang
+  components:
+  - name: Frontend
+    type: frontend
+    replicas: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/sglang-runtime:my-tag
+  - name: VideoDiffusionWorker
+    type: worker
+    replicas: 1
+    sharedMemorySize: 16Gi
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: my-registry/sglang-runtime:my-tag
+          command:
+          - python3
+          - -m
+          - dynamo.sglang
+          args:
+          - --model-path
+          - Wan-AI/Wan2.1-T2V-1.3B-Diffusers
+          - --served-model-name
+          - Wan-AI/Wan2.1-T2V-1.3B-Diffusers
+          - --tp
+          - "1"
+          - --nccl-port
+          - "30005"
+          - --video-generation-worker
+          - --media-output-fs-url
+          - file:///tmp/dynamo_media
+          - --trust-remote-code
+          - --skip-tokenizer-init
+          - --enable-metrics
+          envFrom:
+          - secretRef:
+              name: hf-token-secret
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+          - name: media-output
+            mountPath: /tmp/dynamo_media
+        volumes:
+        - name: media-output
+          emptyDir:
+            sizeLimit: 40Gi
