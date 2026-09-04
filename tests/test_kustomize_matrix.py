@@ -21,8 +21,8 @@ USER_FACING_MANIFEST_ROOTS = (
 )
 LEGACY_VLLM_COMPONENT_NAME = re.compile(
     r"^\s*(?:"
-    r"-\s+name:\s*['\"]?Vllm(?:Prefill|Decode)?Worker['\"]?"
-    r"|['\"]?Vllm(?:Prefill|Decode)?Worker['\"]?\s*:"
+    r"-\s+name:\s*['\"]?Vllm(?:Worker|Prefill(?:Worker)?|Decode(?:Worker)?)['\"]?"
+    r"|['\"]?Vllm(?:Worker|Prefill(?:Worker)?|Decode(?:Worker)?)['\"]?\s*:"
     r")\s*(?:#.*)?$"
 )
 
