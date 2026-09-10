@@ -18,10 +18,6 @@ spec:
         containers:
         - name: main
           image: my-registry/dynamo:my-tag
-          command:
-          - python3
-          - -m
-          - dynamo.frontend
   - name: SampleDiffusionWorker
     type: worker
     replicas: 1
@@ -39,3 +35,9 @@ spec:
           - sample-diffusion-model
           - --endpoint-types
           - images
+          - --namespace
+          - $(DYN_NAMESPACE)
+          - --component
+          - $(DYN_COMPONENT)
+          - --discovery-backend
+          - kubernetes
