@@ -3,47 +3,40 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Narrated demo-magic (https://github.com/paxtonhare/demo-magic) walkthrough of
-# vllm-omni-i2v-dgd.yaml: deploy the Wan2.2 image-to-video DGD, wait for Ready,
-# show the input image, generate a video from it, and play both side by side.
-# Narration types itself; ENTER types each command, ENTER again runs it.
+# sglang-llada-dgd.yaml: deploy the LLaDA 2.0 diffusion language model DGD, wait for
+# Ready, ask it a question, and print the answer. Narration types itself; ENTER types
+# each command, ENTER again runs it.
 #
-#   ./vllm-omni-i2v-demo.sh                        # present against the pre-deployed DGD
-#   SIMULATE_DEPLOY=false ./vllm-omni-i2v-demo.sh  # really apply and wait for Ready
-#   ./vllm-omni-i2v-demo.sh -d -n                  # rehearse: no typing, no pauses (-w5 auto-advances)
-#   ./vllm-omni-i2v-demo.sh cleanup                # delete the DGD and release the GPU
+#   ./sglang-llada-demo.sh                        # present against the pre-deployed DGD
+#   SIMULATE_DEPLOY=false ./sglang-llada-demo.sh  # really apply and wait for Ready
+#   ./sglang-llada-demo.sh -d -n                  # rehearse: no typing, no pauses (-w5 auto-advances)
+#   ./sglang-llada-demo.sh cleanup                # delete the DGD and release the GPU
 #
 # By default the deploy is simulated: kubectl apply is typed with its usual output but
 # not run, so preflight requires the DGD to be deployed, Ready, and identical to the
 # manifest (kubectl diff). The Ready wait runs for real and returns at once, and the
 # request goes to the existing DGD. With SIMULATE_DEPLOY=false, an identical Ready DGD
 # is reused (no cold start). The DGD holds one H100: on a one-GPU budget, run cleanup
-# before the next demo.
+# before the next demo. The cluster's long-running sglang-llada-agg has the same serving
+# spec but is a separate DGD; this script neither uses nor deletes it.
 # Needs kubectl, curl, jq, python3, and pv for simulated typing (brew install pv).
-# The worker returns VP9 MP4, which QuickTime cannot decode, so PLAYER opens a
-# looping page in a browser that can (Edge, Chrome, or Firefox).
-# INPUT_IMAGE defaults to the validated PNG from the qualification run in
-# vllm-omni-demo-handoff.md; PROMPT should describe whatever image you use.
-# Env overrides: KUBE_CONTEXT, NAMESPACE, LOCAL_PORT, PLAYER, INPUT_IMAGE, PROMPT,
-# SIMULATE_DEPLOY, and DEMO_MAGIC (a local demo-magic.sh instead of the pinned,
-# verified download).
+# Env overrides: KUBE_CONTEXT, NAMESPACE, LOCAL_PORT, PROMPT, SIMULATE_DEPLOY, and
+# DEMO_MAGIC (a local demo-magic.sh instead of the pinned, verified download).
 
 KUBE_CONTEXT="${KUBE_CONTEXT:-h100}"
 NAMESPACE="${NAMESPACE:-default}"
 # Each *-demo.sh here defaults to its own port so several can run at once.
-LOCAL_PORT="${LOCAL_PORT:-8015}"
-PLAYER="${PLAYER:-open -a \"Microsoft Edge\"}"
-INPUT_IMAGE="${INPUT_IMAGE:-${HOME}/.codex/worktrees/ffmpeg-color-validation/dynamo/artifacts/ffmpeg-color-validation/cluster-20260922T2127Z/requests/i2v-input.png}"
-PROMPT="${PROMPT:-The red apple slowly turns toward the camera while the white table and background remain stable}"
+LOCAL_PORT="${LOCAL_PORT:-8012}"
+PROMPT="${PROMPT:-Explain in three sentences why the sky appears blue.}"
 SIMULATE_DEPLOY="${SIMULATE_DEPLOY:-true}"
 
-MANIFEST=vllm-omni-i2v-dgd.yaml
-DGD=vllm-omni-i2v-demo
-MODEL=Wan-AI/Wan2.2-TI2V-5B-Diffusers
+MANIFEST=sglang-llada-dgd.yaml
+DGD=sglang-llada-demo
+MODEL=inclusionAI/LLaDA2.0-mini-preview
 SELECTOR="nvidia.com/dynamo-graph-deployment-name=${DGD}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT_DIR="${REPO_ROOT}/runs/vllm-omni-i2v-demo"
+OUT_DIR="${REPO_ROOT}/runs/sglang-llada-demo"
 PF_LOG="${OUT_DIR}/port-forward.log"
-VALIDATED_INPUT_SHA256=d3b77ff73294c127e24382076bfcbb9b269dd2d278372e71692c903cfe04aedd
 
 DEMO_MAGIC_COMMIT=142f0e70c6242456f166aaa75dd3de829ab7fe73
 DEMO_MAGIC_SHA256=c949dcfa64b491a3e5a80569dd41c901963c06703a94c80a670f151d2fbead05
@@ -55,10 +48,6 @@ die() {
 
 warn() {
   printf '\033[0;33mWARNING: %s\033[0m\n' "$*" >&2
-}
-
-sha256() {
-  python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$1"
 }
 
 # Every kubectl call, including the ones typed on screen, targets this context and namespace.
@@ -80,12 +69,9 @@ if [[ "${1:-}" == cleanup ]]; then
 fi
 
 [[ "$SIMULATE_DEPLOY" == true || "$SIMULATE_DEPLOY" == false ]] || die "SIMULATE_DEPLOY must be true or false"
-for tool in kubectl curl jq python3 base64 open "${PLAYER%% *}"; do
+for tool in kubectl curl jq python3; do
   type -P "$tool" >/dev/null || die "missing required command: ${tool}"
 done
-[[ -f "$INPUT_IMAGE" ]] || die "input image not found: ${INPUT_IMAGE} (set INPUT_IMAGE to a PNG)"
-# The request labels the image as PNG, so reject anything else.
-[[ "$(head -c 4 "$INPUT_IMAGE" | tail -c 3)" == PNG ]] || die "${INPUT_IMAGE} is not a PNG"
 
 mkdir -p "$OUT_DIR" || die "cannot create ${OUT_DIR}"
 if [[ -z "${DEMO_MAGIC:-}" ]]; then
@@ -95,8 +81,8 @@ if [[ -z "${DEMO_MAGIC:-}" ]]; then
       "https://raw.githubusercontent.com/paxtonhare/demo-magic/${DEMO_MAGIC_COMMIT}/demo-magic.sh" &&
       mv "${DEMO_MAGIC}.part" "$DEMO_MAGIC" || die "could not download demo-magic.sh"
   fi
-  [[ "$(sha256 "$DEMO_MAGIC")" == "$DEMO_MAGIC_SHA256" ]] ||
-    die "${DEMO_MAGIC} does not match the pinned SHA256; delete it and rerun"
+  sha=$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$DEMO_MAGIC")
+  [[ "$sha" == "$DEMO_MAGIC_SHA256" ]] || die "${DEMO_MAGIC} does not match the pinned SHA256; delete it and rerun"
 fi
 # demo-magic parses this script's flags: -d (no typing), -n (no pauses), -w<seconds> (auto-advance).
 . "$DEMO_MAGIC"
@@ -133,64 +119,17 @@ if [[ "$SIMULATE_DEPLOY" == true ]]; then
     die "simulating the deploy needs dgd/${DGD} deployed and Ready; deploy it first or set SIMULATE_DEPLOY=false"
 else
   kubectl apply --dry-run=server -f "$MANIFEST" >/dev/null || die "server-side dry run of ${MANIFEST} failed"
-  # Each vLLM-Omni demo DGD holds an H100; on a one-GPU budget this worker stays Pending until they go.
+  # Each demo DGD on this branch holds an H100; on a one-GPU budget this worker stays Pending until they go.
   others=$(kubectl get dgd --no-headers -o custom-columns=:metadata.name 2>/dev/null |
-    grep '^vllm-omni-' | grep -vxF "$DGD" | paste -sd ' ' -)
+    grep -E '^vllm-omni-|^(sglang|trtllm)-.*-demo$' | grep -vxF "$DGD" | paste -sd ' ' -)
 fi
 
-cp "$INPUT_IMAGE" "${OUT_DIR}/input.png" || die "could not copy ${INPUT_IMAGE}"
-jq -n --arg model "$MODEL" --arg prompt "$PROMPT" \
-  --rawfile png_b64 <(base64 <"${OUT_DIR}/input.png" | tr -d '\n') '{
+jq -n --arg model "$MODEL" --arg prompt "$PROMPT" '{
   model: $model,
-  prompt: $prompt,
-  input_reference: ("data:image/png;base64," + $png_b64),
-  size: "832x480",
-  response_format: "b64_json",
-  nvext: {
-    num_inference_steps: 50,
-    num_frames: 33,
-    guidance_scale: 1.0,
-    boundary_ratio: 0.875,
-    guidance_scale_2: 1.0,
-    fps: 16,
-    seed: 42
-  }
+  messages: [{role: "user", content: $prompt}],
+  temperature: 0,
+  max_tokens: 256
 }' >"${OUT_DIR}/request.json" || die "could not write request.json"
-
-prompt_html=$(jq -r '.prompt | @html' "${OUT_DIR}/request.json")
-caption_html=$(jq -r '"\(.model) · \(.size) · \(.nvext.num_frames) frames at \(.nvext.fps) fps" | @html' \
-  "${OUT_DIR}/request.json")
-cat >"${OUT_DIR}/output.html" <<HTML || die "could not write output.html"
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Image-to-video on NVIDIA Dynamo</title>
-<style>
-  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
-         justify-content: center; gap: 20px; background: #111; color: #eee; font-family: system-ui, sans-serif; }
-  h1 { margin: 0; font-size: 28px; font-weight: 600; }
-  p { margin: 0; max-width: 80vw; font-size: 22px; text-align: center; }
-  .media { display: flex; gap: 2vw; }
-  figure { margin: 0; text-align: center; color: #999; font-size: 16px; }
-  img, video { display: block; margin-bottom: 8px; border-radius: 8px; }
-  /* Equal heights for a square input next to the 832x480 video. */
-  img { width: 30vw; }
-  video { width: 52vw; }
-  small { color: #999; font-size: 16px; }
-</style>
-</head>
-<body>
-<h1>Image-to-video on NVIDIA Dynamo with vLLM-Omni</h1>
-<p>&ldquo;${prompt_html}&rdquo;</p>
-<div class="media">
-  <figure><img src="input.png" alt="Input image"><figcaption>Input image</figcaption></figure>
-  <figure><video src="output.mp4" autoplay loop muted playsinline controls></video><figcaption>Generated video</figcaption></figure>
-</div>
-<small>${caption_html}</small>
-</body>
-</html>
-HTML
 
 pf_pid=
 stop_port_forward() {
@@ -198,8 +137,6 @@ stop_port_forward() {
 }
 trap stop_port_forward EXIT
 
-[[ "$(sha256 "${OUT_DIR}/input.png")" == "$VALIDATED_INPUT_SHA256" ]] ||
-  warn "${INPUT_IMAGE} is not the validated input image from the qualification run."
 [[ -z "$others" ]] ||
   warn "also deployed in ${NAMESPACE}: ${others}. Each holds an H100; on a one-GPU budget, clean up first."
 if [[ "$SIMULATE_DEPLOY" == true ]]; then
@@ -213,12 +150,14 @@ echo "Press ENTER to start."
 [[ "$NO_WAIT" == true ]] || wait
 clear
 
-narrate "Image-to-video on NVIDIA Dynamo with vLLM-Omni" \
+narrate "Diffusion language model on NVIDIA Dynamo with SGLang" \
   "Model: ${MODEL}" \
   "One DynamoGraphDeployment: a CPU frontend plus one H100 worker"
 
-narrate "The worker launches vLLM-Omni with video output:"
-pe "sed -n '/command:/,/--enforce-eager/p' ${MANIFEST}"
+narrate "Instead of generating one token at a time, LLaDA starts from masked tokens" \
+  "and refines them over several steps"
+narrate "The worker launches SGLang with a diffusion decoding algorithm:"
+pe "sed -n '/command:/,/LowConfidence/p' ${MANIFEST}"
 
 narrate "Deploy it; the Dynamo operator creates the frontend and worker pods"
 if [[ "$SIMULATE_DEPLOY" == true ]]; then
@@ -232,7 +171,7 @@ fi
 if [[ "$cold" == true ]]; then
   narrate "A cold start pulls images and loads the model, which takes several minutes"
 fi
-pe "kubectl wait --for=condition=Ready dgd/${DGD} --timeout=20m"
+pe "kubectl wait --for=condition=Ready dgd/${DGD} --timeout=30m"
 [[ "$(dgd_ready)" == True ]] ||
   die "dgd/${DGD} is not Ready; inspect: kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} describe pods -l ${SELECTOR}"
 pe "kubectl get pods -l ${SELECTOR}"
@@ -266,25 +205,20 @@ narrate "The model is discoverable through /v1/models"
 pe "curl -s http://127.0.0.1:${LOCAL_PORT}/v1/models | jq -r '.data[].id'"
 
 cd "$OUT_DIR" || die "cannot cd to ${OUT_DIR}"
-rm -f response.json output.mp4
-narrate "Our input image:"
-pe "open input.png"
-narrate "The request to /v1/videos carries the image inline as a base64 data URL (shortened here)"
-pe "jq '.input_reference |= .[:48] + \"...\"' request.json"
-narrate "50 denoising steps for 33 frames at 832x480 (about 10 s in testing)"
-pe "time curl -sS --fail-with-body --max-time 1200 \\
-  http://127.0.0.1:${LOCAL_PORT}/v1/videos \\
+rm -f response.json
+narrate "Ask a question through the standard /v1/chat/completions endpoint"
+pe "jq . request.json"
+narrate "Greedy decoding with temperature 0 (about 4 s in testing)"
+pe "time curl -sS --fail-with-body --max-time 600 \\
+  http://127.0.0.1:${LOCAL_PORT}/v1/chat/completions \\
   -H 'Content-Type: application/json' --data-binary @request.json \\
   -o response.json"
-jq -e '.status == "completed" and (.data[0].b64_json | length > 0)' response.json >/dev/null 2>&1 ||
-  die "video request failed: $(head -c 2000 response.json 2>/dev/null)"
+jq -e '.choices[0].message.content | length > 0' response.json >/dev/null 2>&1 ||
+  die "chat request failed: $(head -c 2000 response.json 2>/dev/null)"
 
-narrate "The MP4 comes back base64-encoded in the JSON; decode it and play it next to the input"
-pe "jq -r '.data[0].b64_json' response.json | base64 -d > output.mp4"
-[[ "$(head -c 8 output.mp4 | tail -c 4)" == ftyp ]] || die "output.mp4 is not an MP4 file"
-# Say out loud: the apple comes out flatter/wider than the square input (undiagnosed; see the handoff).
-pe "${PLAYER} output.html"
+narrate "The answer:"
+pe "jq -r '.choices[0].message.content' response.json"
 p ""
 
-echo "dgd/${DGD} is still running on ${KUBE_CONTEXT}:${NAMESPACE}; the video is in ${OUT_DIR}."
+echo "dgd/${DGD} is still running on ${KUBE_CONTEXT}:${NAMESPACE}; the response is in ${OUT_DIR}."
 echo "Release the GPU with: $0 cleanup"

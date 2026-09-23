@@ -22,7 +22,8 @@
 
 KUBE_CONTEXT="${KUBE_CONTEXT:-h100}"
 NAMESPACE="${NAMESPACE:-default}"
-LOCAL_PORT="${LOCAL_PORT:-8000}"
+# Each *-demo.sh here defaults to its own port so several can run at once.
+LOCAL_PORT="${LOCAL_PORT:-8014}"
 PLAYER="${PLAYER:-afplay}"
 TTS_INPUT="${TTS_INPUT:-Hey, this is generated using NVIDIA Dynamo.}"
 SIMULATE_DEPLOY="${SIMULATE_DEPLOY:-true}"

@@ -26,7 +26,8 @@
 
 KUBE_CONTEXT="${KUBE_CONTEXT:-h100}"
 NAMESPACE="${NAMESPACE:-default}"
-LOCAL_PORT="${LOCAL_PORT:-8000}"
+# Each *-demo.sh here defaults to its own port so several can run at once.
+LOCAL_PORT="${LOCAL_PORT:-8017}"
 PLAYER="${PLAYER:-open -a \"Microsoft Edge\"}"
 PROMPT="${PROMPT:-A dog running on a beach at sunrise}"
 SIMULATE_DEPLOY="${SIMULATE_DEPLOY:-true}"
