@@ -7,19 +7,25 @@
 # show the input image, generate a video from it, and play both side by side.
 # Narration types itself; ENTER types each command, ENTER again runs it.
 #
-#   ./vllm-omni-i2v-demo.sh           # present
-#   ./vllm-omni-i2v-demo.sh -d -n     # rehearse: no typing, no pauses (-w5 auto-advances)
-#   ./vllm-omni-i2v-demo.sh cleanup   # delete the DGD and release the GPU
+#   ./vllm-omni-i2v-demo.sh                        # present against the pre-deployed DGD
+#   SIMULATE_DEPLOY=false ./vllm-omni-i2v-demo.sh  # really apply and wait for Ready
+#   ./vllm-omni-i2v-demo.sh -d -n                  # rehearse: no typing, no pauses (-w5 auto-advances)
+#   ./vllm-omni-i2v-demo.sh cleanup                # delete the DGD and release the GPU
 #
-# Rerunning while the same DGD is deployed and Ready reuses it (no cold start).
-# The DGD holds one H100: on a one-GPU budget, run cleanup before the next demo.
+# By default the deploy is simulated: kubectl apply is typed with its usual output but
+# not run, so preflight requires the DGD to be deployed, Ready, and identical to the
+# manifest (kubectl diff). The Ready wait runs for real and returns at once, and the
+# request goes to the existing DGD. With SIMULATE_DEPLOY=false, an identical Ready DGD
+# is reused (no cold start). The DGD holds one H100: on a one-GPU budget, run cleanup
+# before the next demo.
 # Needs kubectl, curl, jq, python3, and pv for simulated typing (brew install pv).
 # The worker returns VP9 MP4, which QuickTime cannot decode, so PLAYER opens a
 # looping page in a browser that can (Edge, Chrome, or Firefox).
 # INPUT_IMAGE defaults to the validated PNG from the qualification run in
 # vllm-omni-demo-handoff.md; PROMPT should describe whatever image you use.
 # Env overrides: KUBE_CONTEXT, NAMESPACE, LOCAL_PORT, PLAYER, INPUT_IMAGE, PROMPT,
-# and DEMO_MAGIC (a local demo-magic.sh instead of the pinned, verified download).
+# SIMULATE_DEPLOY, and DEMO_MAGIC (a local demo-magic.sh instead of the pinned,
+# verified download).
 
 KUBE_CONTEXT="${KUBE_CONTEXT:-h100}"
 NAMESPACE="${NAMESPACE:-default}"
@@ -27,6 +33,7 @@ LOCAL_PORT="${LOCAL_PORT:-8000}"
 PLAYER="${PLAYER:-open -a \"Microsoft Edge\"}"
 INPUT_IMAGE="${INPUT_IMAGE:-${HOME}/.codex/worktrees/ffmpeg-color-validation/dynamo/artifacts/ffmpeg-color-validation/cluster-20260922T2127Z/requests/i2v-input.png}"
 PROMPT="${PROMPT:-The red apple slowly turns toward the camera while the white table and background remain stable}"
+SIMULATE_DEPLOY="${SIMULATE_DEPLOY:-true}"
 
 MANIFEST=vllm-omni-i2v-dgd.yaml
 DGD=vllm-omni-i2v-demo
@@ -71,6 +78,7 @@ if [[ "${1:-}" == cleanup ]]; then
   exit
 fi
 
+[[ "$SIMULATE_DEPLOY" == true || "$SIMULATE_DEPLOY" == false ]] || die "SIMULATE_DEPLOY must be true or false"
 for tool in kubectl curl jq python3 base64 open "${PLAYER%% *}"; do
   type -P "$tool" >/dev/null || die "missing required command: ${tool}"
 done
@@ -119,11 +127,15 @@ if [[ -n "$(kubectl get dgd "$DGD" -o name --ignore-not-found)" ]]; then
   esac
   [[ "$(dgd_ready)" == True ]] && cold=false
 fi
-kubectl apply --dry-run=server -f "$MANIFEST" >/dev/null || die "server-side dry run of ${MANIFEST} failed"
-
-# Each vLLM-Omni demo DGD holds an H100; on a one-GPU budget this worker stays Pending until they go.
-others=$(kubectl get dgd --no-headers -o custom-columns=:metadata.name 2>/dev/null |
-  grep '^vllm-omni-' | grep -vxF "$DGD" | paste -sd ' ' -)
+if [[ "$SIMULATE_DEPLOY" == true ]]; then
+  [[ "$cold" == false ]] ||
+    die "simulating the deploy needs dgd/${DGD} deployed and Ready; deploy it first or set SIMULATE_DEPLOY=false"
+else
+  kubectl apply --dry-run=server -f "$MANIFEST" >/dev/null || die "server-side dry run of ${MANIFEST} failed"
+  # Each vLLM-Omni demo DGD holds an H100; on a one-GPU budget this worker stays Pending until they go.
+  others=$(kubectl get dgd --no-headers -o custom-columns=:metadata.name 2>/dev/null |
+    grep '^vllm-omni-' | grep -vxF "$DGD" | paste -sd ' ' -)
+fi
 
 cp "$INPUT_IMAGE" "${OUT_DIR}/input.png" || die "could not copy ${INPUT_IMAGE}"
 jq -n --arg model "$MODEL" --arg prompt "$PROMPT" \
@@ -189,7 +201,9 @@ trap stop_port_forward EXIT
   warn "${INPUT_IMAGE} is not the validated input image from the qualification run."
 [[ -z "$others" ]] ||
   warn "also deployed in ${NAMESPACE}: ${others}. Each holds an H100; on a one-GPU budget, clean up first."
-if [[ "$cold" == true ]]; then
+if [[ "$SIMULATE_DEPLOY" == true ]]; then
+  echo "Preflight OK (${KUBE_CONTEXT}:${NAMESPACE}). dgd/${DGD} is Ready and matches ${MANIFEST}; the apply is simulated."
+elif [[ "$cold" == true ]]; then
   echo "Preflight OK (${KUBE_CONTEXT}:${NAMESPACE}). Cold start: expect several minutes of loading."
 else
   echo "Preflight OK (${KUBE_CONTEXT}:${NAMESPACE}). dgd/${DGD} is already deployed and Ready."
@@ -206,7 +220,13 @@ narrate "The worker launches vLLM-Omni with video output:"
 pe "sed -n '/command:/,/--enforce-eager/p' ${MANIFEST}"
 
 narrate "Deploy it; the Dynamo operator creates the frontend and worker pods"
-pe "kubectl apply -f ${MANIFEST}"
+if [[ "$SIMULATE_DEPLOY" == true ]]; then
+  # Typed but not run: preflight proved the live DGD matches the manifest.
+  p "kubectl apply -f ${MANIFEST}"
+  echo "dynamographdeployment.nvidia.com/${DGD} created"
+else
+  pe "kubectl apply -f ${MANIFEST}"
+fi
 
 if [[ "$cold" == true ]]; then
   narrate "A cold start pulls images and loads the model, which takes several minutes"

@@ -6,20 +6,26 @@
 # vllm-omni-audio.md: deploy the Qwen3-TTS DGD, wait for Ready, generate speech,
 # and play it. Narration types itself; ENTER types each command, ENTER again runs it.
 #
-#   ./vllm-omni-audio-demo.sh           # present
-#   ./vllm-omni-audio-demo.sh -d -n     # rehearse: no typing, no pauses (-w5 auto-advances)
-#   ./vllm-omni-audio-demo.sh cleanup   # delete the DGD and release the GPU
+#   ./vllm-omni-audio-demo.sh                        # present against the pre-deployed DGD
+#   SIMULATE_DEPLOY=false ./vllm-omni-audio-demo.sh  # really apply and wait for Ready
+#   ./vllm-omni-audio-demo.sh -d -n                  # rehearse: no typing, no pauses (-w5 auto-advances)
+#   ./vllm-omni-audio-demo.sh cleanup                # delete the DGD and release the GPU
 #
-# Rerunning while the same DGD is deployed and Ready reuses it (no cold start).
+# By default the deploy is simulated: kubectl apply is typed with its usual output but
+# not run, so preflight requires the DGD to be deployed, Ready, and identical to the
+# manifest (kubectl diff). The Ready wait runs for real and returns at once, and the
+# request goes to the existing DGD. With SIMULATE_DEPLOY=false, an identical Ready DGD
+# is reused (no cold start).
 # Needs kubectl, curl, jq, python3, and pv for simulated typing (brew install pv).
-# Env overrides: KUBE_CONTEXT, NAMESPACE, LOCAL_PORT, PLAYER, TTS_INPUT, and
-# DEMO_MAGIC (a local demo-magic.sh instead of the pinned, verified download).
+# Env overrides: KUBE_CONTEXT, NAMESPACE, LOCAL_PORT, PLAYER, TTS_INPUT, SIMULATE_DEPLOY,
+# and DEMO_MAGIC (a local demo-magic.sh instead of the pinned, verified download).
 
 KUBE_CONTEXT="${KUBE_CONTEXT:-h100}"
 NAMESPACE="${NAMESPACE:-default}"
 LOCAL_PORT="${LOCAL_PORT:-8000}"
 PLAYER="${PLAYER:-afplay}"
 TTS_INPUT="${TTS_INPUT:-Hey, this is generated using NVIDIA Dynamo.}"
+SIMULATE_DEPLOY="${SIMULATE_DEPLOY:-true}"
 
 MANIFEST=vllm-omni-audio.yaml
 DGD=vllm-omni-audio-sep18
@@ -55,6 +61,7 @@ if [[ "${1:-}" == cleanup ]]; then
   exit
 fi
 
+[[ "$SIMULATE_DEPLOY" == true || "$SIMULATE_DEPLOY" == false ]] || die "SIMULATE_DEPLOY must be true or false"
 for tool in kubectl curl jq python3 "${PLAYER%% *}"; do
   type -P "$tool" >/dev/null || die "missing required command: ${tool}"
 done
@@ -100,7 +107,12 @@ if [[ -n "$(kubectl get dgd "$DGD" -o name --ignore-not-found)" ]]; then
   esac
   [[ "$(dgd_ready)" == True ]] && cold=false
 fi
-kubectl apply --dry-run=server -f "$MANIFEST" >/dev/null || die "server-side dry run of ${MANIFEST} failed"
+if [[ "$SIMULATE_DEPLOY" == true ]]; then
+  [[ "$cold" == false ]] ||
+    die "simulating the deploy needs dgd/${DGD} deployed and Ready; deploy it first or set SIMULATE_DEPLOY=false"
+else
+  kubectl apply --dry-run=server -f "$MANIFEST" >/dev/null || die "server-side dry run of ${MANIFEST} failed"
+fi
 
 jq -n --arg input "$TTS_INPUT" --arg model "$MODEL" \
   '{input: $input, model: $model, voice: "vivian", language: "English", data_source: "b64_json", response_format: "wav"}' \
@@ -112,7 +124,9 @@ stop_port_forward() {
 }
 trap stop_port_forward EXIT
 
-if [[ "$cold" == true ]]; then
+if [[ "$SIMULATE_DEPLOY" == true ]]; then
+  echo "Preflight OK (${KUBE_CONTEXT}:${NAMESPACE}). dgd/${DGD} is Ready and matches ${MANIFEST}; the apply is simulated."
+elif [[ "$cold" == true ]]; then
   echo "Preflight OK (${KUBE_CONTEXT}:${NAMESPACE}). Cold start: expect several minutes of loading."
 else
   echo "Preflight OK (${KUBE_CONTEXT}:${NAMESPACE}). dgd/${DGD} is already deployed and Ready."
@@ -129,7 +143,13 @@ narrate "The worker launches vLLM-Omni with audio output:"
 pe "sed -n '/command:/,/--enforce-eager/p' ${MANIFEST}"
 
 narrate "Deploy it; the Dynamo operator creates the frontend and worker pods"
-pe "kubectl apply -f ${MANIFEST}"
+if [[ "$SIMULATE_DEPLOY" == true ]]; then
+  # Typed but not run: preflight proved the live DGD matches the manifest.
+  p "kubectl apply -f ${MANIFEST}"
+  echo "dynamographdeployment.nvidia.com/${DGD} created"
+else
+  pe "kubectl apply -f ${MANIFEST}"
+fi
 
 if [[ "$cold" == true ]]; then
   narrate "A cold start pulls images and loads the model, which takes several minutes"

@@ -7,23 +7,29 @@
 # generate a video, and play it. Narration types itself; ENTER types each command,
 # ENTER again runs it.
 #
-#   ./vllm-omni-t2v-demo.sh           # present
-#   ./vllm-omni-t2v-demo.sh -d -n     # rehearse: no typing, no pauses (-w5 auto-advances)
-#   ./vllm-omni-t2v-demo.sh cleanup   # delete the DGD and release the GPU
+#   ./vllm-omni-t2v-demo.sh                        # present against the pre-deployed DGD
+#   SIMULATE_DEPLOY=false ./vllm-omni-t2v-demo.sh  # really apply and wait for Ready
+#   ./vllm-omni-t2v-demo.sh -d -n                  # rehearse: no typing, no pauses (-w5 auto-advances)
+#   ./vllm-omni-t2v-demo.sh cleanup                # delete the DGD and release the GPU
 #
-# Rerunning while the same DGD is deployed and Ready reuses it (no cold start).
-# The DGD holds one H100: on a one-GPU budget, run cleanup before the next demo.
+# By default the deploy is simulated: kubectl apply is typed with its usual output but
+# not run, so preflight requires the DGD to be deployed, Ready, and identical to the
+# manifest (kubectl diff). The Ready wait runs for real and returns at once, and the
+# request goes to the existing DGD. With SIMULATE_DEPLOY=false, an identical Ready DGD
+# is reused (no cold start). The DGD holds one H100: on a one-GPU budget, run cleanup
+# before the next demo.
 # Needs kubectl, curl, jq, python3, and pv for simulated typing (brew install pv).
 # The worker returns VP9 MP4, which QuickTime cannot decode, so PLAYER opens a
 # looping page in a browser that can (Edge, Chrome, or Firefox).
-# Env overrides: KUBE_CONTEXT, NAMESPACE, LOCAL_PORT, PLAYER, PROMPT, and
-# DEMO_MAGIC (a local demo-magic.sh instead of the pinned, verified download).
+# Env overrides: KUBE_CONTEXT, NAMESPACE, LOCAL_PORT, PLAYER, PROMPT, SIMULATE_DEPLOY,
+# and DEMO_MAGIC (a local demo-magic.sh instead of the pinned, verified download).
 
 KUBE_CONTEXT="${KUBE_CONTEXT:-h100}"
 NAMESPACE="${NAMESPACE:-default}"
 LOCAL_PORT="${LOCAL_PORT:-8000}"
 PLAYER="${PLAYER:-open -a \"Microsoft Edge\"}"
 PROMPT="${PROMPT:-A dog running on a beach at sunrise}"
+SIMULATE_DEPLOY="${SIMULATE_DEPLOY:-true}"
 
 MANIFEST=vllm-omni-t2v-dgd.yaml
 DGD=vllm-omni-t2v-demo
@@ -63,6 +69,7 @@ if [[ "${1:-}" == cleanup ]]; then
   exit
 fi
 
+[[ "$SIMULATE_DEPLOY" == true || "$SIMULATE_DEPLOY" == false ]] || die "SIMULATE_DEPLOY must be true or false"
 for tool in kubectl curl jq python3 base64 "${PLAYER%% *}"; do
   type -P "$tool" >/dev/null || die "missing required command: ${tool}"
 done
@@ -108,11 +115,15 @@ if [[ -n "$(kubectl get dgd "$DGD" -o name --ignore-not-found)" ]]; then
   esac
   [[ "$(dgd_ready)" == True ]] && cold=false
 fi
-kubectl apply --dry-run=server -f "$MANIFEST" >/dev/null || die "server-side dry run of ${MANIFEST} failed"
-
-# Each vLLM-Omni demo DGD holds an H100; on a one-GPU budget this worker stays Pending until they go.
-others=$(kubectl get dgd --no-headers -o custom-columns=:metadata.name 2>/dev/null |
-  grep '^vllm-omni-' | grep -vxF "$DGD" | paste -sd ' ' -)
+if [[ "$SIMULATE_DEPLOY" == true ]]; then
+  [[ "$cold" == false ]] ||
+    die "simulating the deploy needs dgd/${DGD} deployed and Ready; deploy it first or set SIMULATE_DEPLOY=false"
+else
+  kubectl apply --dry-run=server -f "$MANIFEST" >/dev/null || die "server-side dry run of ${MANIFEST} failed"
+  # Each vLLM-Omni demo DGD holds an H100; on a one-GPU budget this worker stays Pending until they go.
+  others=$(kubectl get dgd --no-headers -o custom-columns=:metadata.name 2>/dev/null |
+    grep '^vllm-omni-' | grep -vxF "$DGD" | paste -sd ' ' -)
+fi
 
 jq -n --arg model "$MODEL" --arg prompt "$PROMPT" '{
   model: $model,
@@ -157,7 +168,9 @@ trap stop_port_forward EXIT
 
 [[ -z "$others" ]] ||
   warn "also deployed in ${NAMESPACE}: ${others}. Each holds an H100; on a one-GPU budget, clean up first."
-if [[ "$cold" == true ]]; then
+if [[ "$SIMULATE_DEPLOY" == true ]]; then
+  echo "Preflight OK (${KUBE_CONTEXT}:${NAMESPACE}). dgd/${DGD} is Ready and matches ${MANIFEST}; the apply is simulated."
+elif [[ "$cold" == true ]]; then
   echo "Preflight OK (${KUBE_CONTEXT}:${NAMESPACE}). Cold start: expect several minutes of loading."
 else
   echo "Preflight OK (${KUBE_CONTEXT}:${NAMESPACE}). dgd/${DGD} is already deployed and Ready."
@@ -174,7 +187,13 @@ narrate "The worker launches vLLM-Omni with video output:"
 pe "sed -n '/command:/,/--enforce-eager/p' ${MANIFEST}"
 
 narrate "Deploy it; the Dynamo operator creates the frontend and worker pods"
-pe "kubectl apply -f ${MANIFEST}"
+if [[ "$SIMULATE_DEPLOY" == true ]]; then
+  # Typed but not run: preflight proved the live DGD matches the manifest.
+  p "kubectl apply -f ${MANIFEST}"
+  echo "dynamographdeployment.nvidia.com/${DGD} created"
+else
+  pe "kubectl apply -f ${MANIFEST}"
+fi
 
 if [[ "$cold" == true ]]; then
   narrate "A cold start pulls images and loads the model, which takes several minutes"
