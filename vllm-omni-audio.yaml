@@ -1,0 +1,91 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Qwen3-TTS audio demo: exact serving spec validated on September 18, 2026.
+# Both serving images contain Dynamo 1.6.0.dev20260918; the operator was 1.4.2.
+# These are pinned test images, not rolling latest tags.
+# This manifest retains the tested cluster's node selectors and existing cache.
+# See vllm-omni-audio.md for prerequisites, deployment, WAV output, and cleanup.
+
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: vllm-omni-audio-sep18
+  namespace: default
+spec:
+  backendFramework: vllm
+  components:
+  - name: Frontend
+    type: frontend
+    replicas: 1
+    runtimeVersionOverride: 1.6.0
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend-nightly:20260918-a9792db
+        nodeSelector:
+          agentpool: nodepool1
+  - name: OmniAudioWorker
+    type: worker
+    replicas: 1
+    runtimeVersionOverride: 1.6.0
+    sharedMemorySize: 16Gi
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime-nightly:20260918-a9792db
+          command:
+          - python3
+          - -m
+          - dynamo.vllm.omni
+          args:
+          - --model
+          - Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+          - --output-modalities
+          - audio
+          - --media-output-fs-url
+          - file:///tmp/dynamo_media
+          - --trust-remote-code
+          - --enforce-eager
+          env:
+          - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+            value: '1'
+          - name: HF_HOME
+            value: /model-cache
+          envFrom:
+          - secretRef:
+              name: hf-token-secret
+          resources:
+            limits:
+              nvidia.com/gpu: '1'
+            requests:
+              nvidia.com/gpu: '1'
+          volumeMounts:
+          - name: media-output
+            mountPath: /tmp/dynamo_media
+          - name: model-cache
+            mountPath: /model-cache
+            subPath: dynamo-cache
+        volumes:
+        - name: media-output
+          emptyDir:
+            sizeLimit: 20Gi
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: pvc-lustre-dynamo
+        nodeSelector:
+          agentpool: ndh100pool
