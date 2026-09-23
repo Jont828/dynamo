@@ -1,0 +1,126 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Serving configuration validated on 2026-09-22; only demo names/labels changed.
+# Requires the existing default-namespace secret and complete read-only model cache.
+# This DGD requests one H100. Deploy the T2V and I2V demos sequentially for a
+# one-GPU budget. See vllm-omni-demo-handoff.md before deploying.
+
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: vllm-omni-t2v-demo
+  namespace: default
+  labels:
+    video-mode: t2v
+    demo: vllm-omni
+spec:
+  backendFramework: vllm
+  components:
+  - name: Frontend
+    type: frontend
+    replicas: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend@sha256:4d6435ad3893487e7e5a8751eb2381199464f80248284bb98c5e0998f09a91c0
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: '2'
+              memory: 2Gi
+        nodeSelector:
+          agentpool: nodepool1
+          kubernetes.io/arch: amd64
+      metadata:
+        labels:
+          video-mode: t2v
+          video-role: frontend
+          demo: vllm-omni
+    runtimeVersionOverride: 1.4.2
+  - name: OmniVideoWorker
+    type: worker
+    replicas: 1
+    sharedMemorySize: 16Gi
+    podTemplate:
+      spec:
+        containers:
+        - name: main
+          image: docker.io/jont828/dynamo-ffmpeg-color@sha256:1b72cc6dfbbf610ba6e1135832c9cb702f7e6ddca2d57ddfc01e7e67e066980c
+          command:
+          - python3
+          - -m
+          - dynamo.vllm.omni
+          args:
+          - --model
+          - Wan-AI/Wan2.1-T2V-1.3B-Diffusers
+          - --output-modalities
+          - video
+          - --media-output-fs-url
+          - file:///tmp/dynamo_media
+          - --enforce-eager
+          envFrom:
+          - secretRef:
+              name: hf-token-secret
+          resources:
+            limits:
+              nvidia.com/gpu: '1'
+              cpu: '8'
+              memory: 96Gi
+            requests:
+              nvidia.com/gpu: '1'
+              cpu: '4'
+              memory: 32Gi
+          volumeMounts:
+          - name: media-output
+            mountPath: /tmp/dynamo_media
+          - name: run-hf
+            mountPath: /run-hf
+          - name: shared-model-cache
+            mountPath: /shared-cache
+            subPath: dynamo-cache
+            readOnly: true
+          env:
+          - name: HF_HOME
+            value: /run-hf
+          - name: HF_HUB_DISABLE_TELEMETRY
+            value: '1'
+          - name: HF_HUB_CACHE
+            value: /shared-cache/hub
+          - name: HF_HUB_OFFLINE
+            value: '1'
+        volumes:
+        - name: media-output
+          emptyDir:
+            sizeLimit: 40Gi
+        - name: run-hf
+          emptyDir:
+            sizeLimit: 80Gi
+        - name: shared-model-cache
+          persistentVolumeClaim:
+            claimName: pvc-lustre-dynamo
+            readOnly: true
+        nodeSelector:
+          agentpool: ndh100pool
+          kubernetes.io/arch: amd64
+      metadata:
+        labels:
+          video-mode: t2v
+          video-role: worker
+          demo: vllm-omni
+    runtimeVersionOverride: 1.4.2
