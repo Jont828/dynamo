@@ -27,6 +27,13 @@ done
 
 HTTP_PORT="${DYN_HTTP_PORT:-8000}"
 GPU_MEM_ARGS=$(build_vllm_gpu_mem_args)
+
+# vLLM serves streaming transcription through a model-specific architecture.
+case "$MODEL" in
+    *Qwen3-ASR*|*qwen3-asr*) REALTIME_ARCH="Qwen3ASRRealtimeGeneration" ;;
+    *) REALTIME_ARCH="VoxtralRealtimeGeneration" ;;
+esac
+
 print_launch_banner --no-curl "Launching vLLM Realtime Transcription" "$MODEL" "$HTTP_PORT"
 print_curl_footer <<TEST
   # Stream an audio file and print its transcription:
@@ -44,7 +51,7 @@ DYN_SYSTEM_PORT=${DYN_SYSTEM_PORT:-8081} \
     --realtime \
     --model "$MODEL" \
     --enforce-eager \
-    --hf-overrides '{"architectures":["VoxtralRealtimeGeneration"]}' \
+    --hf-overrides "{\"architectures\":[\"${REALTIME_ARCH}\"]}" \
     $GPU_MEM_ARGS \
     "${EXTRA_ARGS[@]}" &
 
