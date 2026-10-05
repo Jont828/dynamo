@@ -133,8 +133,9 @@ import { TerminalDemo } from "@/components/TerminalDemo";
 
 ### ExamplesCatalog
 
-The Examples overview owns its cards and their version-aware Markdown links. The component adds
-search and topic/platform/backend filters without duplicating that catalog data.
+The main Examples overview owns the catalog metadata and its version-aware Markdown links.
+Subsection overview pages mirror only their topic's cards, with tests enforcing parity. The
+component adds search and topic/platform/backend filters to either page shape.
 
 ```mdx
 import { ExamplesCatalog } from "@/components/ExamplesCatalog";
