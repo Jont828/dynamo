@@ -21,7 +21,7 @@ for a cascaded pipeline, or a vLLM-Omni model for audio input and output.
 ## Run a Pipeline
 
 - **Nemotron Speech cascade on Kubernetes:** Follow the
-  [deployment and smoke-test instructions](https://github.com/ai-dynamo/dynamo/tree/main/examples/nemotron_speech_cascaded_pipeline#deploy-on-kubernetes).
+  [deployment and smoke-test instructions](nemotron-speech-pipeline.md#deploy-on-kubernetes).
   The example deploys Nemotron ASR and Magpie TTS Speech NIMs with Dynamo adapters,
   plus a Nemotron LLM served by vLLM. ASR, LLM, and TTS run in separate pods.
   Follow the example's runtime-image requirements; it currently requires
@@ -43,7 +43,7 @@ with vLLM-Omni installed for the Omni examples.
 For a cascaded voice agent, connect an application such as Pipecat to the three
 stage endpoints. The application owns conversation history, turn detection,
 interruptions, and orchestration; Dynamo serves and routes each stage. See
-[external orchestration](https://github.com/ai-dynamo/dynamo/tree/main/examples/nemotron_speech_cascaded_pipeline#external-orchestration)
+[external orchestration](nemotron-speech-pipeline.md#external-orchestration)
 for client integration details. The deployment smoke test checks speech endpoints,
 not a complete browser voice agent.
 
