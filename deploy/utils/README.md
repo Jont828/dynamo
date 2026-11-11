@@ -21,6 +21,7 @@ This includes:
   - `pvc-access-pod.yaml` — short‑lived pod for copying profiler results from the PVC
 - `kubernetes.py` — helper used by tooling to apply/read resources (e.g., access pod for PVC access)
 - `dynamo_deployment.py` — utilities for working with DynamoGraphDeployment resources
+- `quantity.py` — parses Kubernetes CPU and memory quantities (`500m`, `512Mi`, `1G`) for resource checks
 - `requirements.txt` — Python dependencies for benchmarking utilities
 
 ## Quick start
