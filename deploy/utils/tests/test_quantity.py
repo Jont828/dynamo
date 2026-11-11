@@ -31,6 +31,8 @@ pytestmark = [pytest.mark.pre_merge, pytest.mark.gpu_0, pytest.mark.unit]
         ("2", Decimal(2)),
         ("1.5", Decimal("1.5")),
         ("4k", Decimal(4000)),
+        ("1M", Decimal(1000**2)),
+        ("1G", Decimal(1000**3)),
         ("512Mi", Decimal(512 * 1024**2)),
         ("1Gi", Decimal(1024**3)),
     ],
@@ -48,6 +50,7 @@ def test_cpu_millicores_rounds_up():
 def test_memory_bytes():
     assert memory_bytes("512Mi") == 536870912
     assert memory_bytes("1Gi") == 1073741824
+    assert memory_bytes("1G") == 1000000000
 
 
 @pytest.mark.parametrize("value", ["", "abc", "1.2.3", "5Xi", "-1"])
