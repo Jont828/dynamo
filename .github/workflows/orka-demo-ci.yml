@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Sandbox CI for the Orka PR shepherd demo. It exists only on orka-demo/base in
+# Jont828/dynamo, where Dynamo's own workflows are removed, so a sandbox pull
+# request runs one fast check instead of Dynamo's full CI.
+name: orka-demo-ci
+
+on:
+  pull_request:
+    branches: ["orka-demo/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: deploy-utils unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --quiet pytest pytest-asyncio pytest-benchmark pydantic
+      - name: Run the deploy/utils quantity tests
+        run: python -m pytest -q -p no:cacheprovider deploy/utils/tests/test_quantity.py
