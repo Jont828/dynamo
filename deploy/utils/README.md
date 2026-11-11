@@ -21,6 +21,7 @@ This includes:
   - `pvc-access-pod.yaml` — short‑lived pod for copying profiler results from the PVC
 - `kubernetes.py` — helper used by tooling to apply/read resources (e.g., access pod for PVC access)
 - `dynamo_deployment.py` — utilities for working with DynamoGraphDeployment resources
+- `convert_api_version.py` — converts nvidia.com CRD manifests between served apiVersions through the operator's conversion webhook
 - `requirements.txt` — Python dependencies for benchmarking utilities
 
 ## Quick start
