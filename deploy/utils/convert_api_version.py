@@ -270,17 +270,13 @@ def default_webhook_fn(review: dict, kind: str) -> dict:
 
 # Strings a YAML 1.1 parser (go-yaml, used by kubectl and the apiserver) reads
 # as bool/null. PyYAML's emitter does not quote all of these on output (notably
-# y/n/Y/N), so an unquoted value would be re-parsed as a bool and violate the
+# yes/no/on/off), so an unquoted value would be re-parsed as a bool and violate the
 # "value must be a string" contract for e.g. container env vars. Force-quote them.
 _YAML11_AMBIGUOUS = frozenset(
     {
-        "y",
-        "Y",
         "yes",
         "Yes",
         "YES",
-        "n",
-        "N",
         "no",
         "No",
         "NO",
