@@ -99,6 +99,18 @@ kubectl cp ./my-disagg.yaml $NAMESPACE/pvc-access-pod:/data/configs/disagg.yaml
 kubectl cp ./configs/ $NAMESPACE/pvc-access-pod:/data/configs/
 ```
 
+#### Checking What's on the PVC
+
+**See what a benchmarking or profiling job left before you download it:**
+
+```bash
+# Size of each top-level directory
+kubectl exec -n $NAMESPACE pvc-access-pod -- sh -c 'du -sh /data/*'
+
+# Newest results first
+kubectl exec -n $NAMESPACE pvc-access-pod -- ls -lt /data/results
+```
+
 #### Downloading Files from the PVC
 
 **Download benchmark results:**
