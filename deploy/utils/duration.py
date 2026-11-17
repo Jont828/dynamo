@@ -22,7 +22,7 @@ and add timeouts without shelling out to ``kubectl``.
 import re
 
 # Seconds per unit.
-_UNIT_SECONDS = {"h": 360, "m": 60, "s": 1}
+_UNIT_SECONDS = {"h": 3600, "m": 60, "s": 1}
 
 # Each unit at most once, largest first: "1h30m" and "90s", not "30m1h".
 _DURATION = re.compile(r"(?:(?P<h>\d+)h)?(?:(?P<m>\d+)m)?(?:(?P<s>\d+)s)?")
