@@ -1,0 +1,21 @@
+# screen: az resource show (Microsoft.StorageCache/amlFilesystems, filtered)
+# ran:    az resource show --subscription "$SUB" -g h100 -n h100-lustre --resource-type Microsoft.StorageCache/amlFilesystems --query "{name:name, location:location, sku:sku.name, zones:zones, storageCapacityTiB:properties.storageCapacityTiB, throughputProvisionedMBps:properties.throughputProvisionedMBps, lustreVersion:properties.clientInfo.lustreVersion, health:properties.health.state, maintenanceWindow:properties.maintenanceWindow, filesystemSubnetName:properties.filesystemSubnet}" -o json | sed -E 's#"/subscriptions/.*/virtualNetworks/([^/]+)/subnets/([^"]+)"#"vnet \1, subnet \2"#'
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+{
+  "filesystemSubnetName": "vnet aks-vnet-26633742, subnet amlfs-subnet",
+  "health": "Available",
+  "location": "SouthAfricaNorth",
+  "lustreVersion": "2.15",
+  "maintenanceWindow": {
+    "dayOfWeek": "Sunday",
+    "timeOfDayUTC": "22:00"
+  },
+  "name": "h100-lustre",
+  "sku": "AMLFS-Durable-Premium-500",
+  "storageCapacityTiB": 16.0,
+  "throughputProvisionedMBps": 8000,
+  "zones": [
+    "1"
+  ]
+}

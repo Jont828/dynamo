@@ -1,0 +1,6 @@
+# screen: (not shown) the ConfigMap's creation time and the client that created it
+# ran:    kubectl --context h100 -n slime-kv get configmap slime-functions -o jsonpath='{.metadata.creationTimestamp}{"\n"}{range .metadata.managedFields[*]}{.manager} {.operation} {.time}{"\n"}{end}'
+# date:   2026-11-19T08:37:36Z (UTC), read-only
+# ---
+2026-11-14T03:13:26Z
+kubectl-client-side-apply Update 2026-11-14T03:13:26Z

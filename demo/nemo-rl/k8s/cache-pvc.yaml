@@ -1,0 +1,23 @@
+# Cache for the models, the dataset, Megatron's converted checkpoints and run logs. Created by
+# `kubectl apply -k .`.
+#
+# A Premium SSD Azure Disk (ReadWriteOnce): it attaches to whichever node runs the setup Job or the Ray
+# head, so the RayJob can use any free GPU node, and it survives node reimages. Deleting this PVC
+# deletes the disk.
+#
+# Don't use node-local NVMe from Azure Container Storage (`kaito-local-nvme-disk`) here: its PVs carry
+# no node affinity, so a pod can land on another node, and the failover reconciler then deletes the
+# original volume. Multi-node training would need a ReadWriteMany volume instead (Azure Managed Lustre,
+# or `azurefile-csi-premium`) so Ray worker pods can mount the same cache.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nemo-rl-dynamo-cache
+  namespace: nemo-rl-demo
+spec:
+  storageClassName: managed-csi-premium
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      # 512 GiB (P20) for 150 MB/s throughput; the cache itself needs about 30 GiB plus run logs.
+      storage: 512Gi

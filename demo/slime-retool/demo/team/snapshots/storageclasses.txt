@@ -1,0 +1,16 @@
+# screen: kubectl get storageclass
+# ran:    kubectl --context h100 get storageclass
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+NAME                    PROVISIONER                 RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+azurefile               file.csi.azure.com          Delete          Immediate              true                   141d
+azurefile-csi           file.csi.azure.com          Delete          Immediate              true                   141d
+azurefile-csi-premium   file.csi.azure.com          Delete          Immediate              true                   141d
+azurefile-premium       file.csi.azure.com          Delete          Immediate              true                   141d
+azurelustre-static      azurelustre.csi.azure.com   Retain          Immediate              false                  141d
+default (default)       disk.csi.azure.com          Delete          WaitForFirstConsumer   true                   141d
+kaito-local-nvme-disk   localdisk.csi.acstor.io     Delete          WaitForFirstConsumer   true                   6d17h
+managed                 disk.csi.azure.com          Delete          WaitForFirstConsumer   true                   141d
+managed-csi             disk.csi.azure.com          Delete          WaitForFirstConsumer   true                   141d
+managed-csi-premium     disk.csi.azure.com          Delete          WaitForFirstConsumer   true                   141d
+managed-premium         disk.csi.azure.com          Delete          WaitForFirstConsumer   true                   141d

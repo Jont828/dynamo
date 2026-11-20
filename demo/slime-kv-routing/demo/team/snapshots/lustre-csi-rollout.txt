@@ -1,0 +1,5 @@
+# screen: kubectl rollout status -n kube-system daemonset/csi-azurelustre-node-noble
+# ran:    kubectl --context h100 rollout status -n kube-system daemonset/csi-azurelustre-node-noble --timeout=10s
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+daemon set "csi-azurelustre-node-noble" successfully rolled out

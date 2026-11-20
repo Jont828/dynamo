@@ -1,0 +1,38 @@
+# screen: helm get values dynamo-platform -n dynamo-system
+# ran:    helm --kube-context h100 get values dynamo-platform -n dynamo-system
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+USER-SUPPLIED VALUES:
+dynamo-operator:
+  controllerManager:
+    tolerations:
+    - operator: Exists
+  discoveryBackend: kubernetes
+  dynamo:
+    metrics:
+      prometheusEndpoint: http://kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+  upgradeCRD: true
+global:
+  etcd:
+    install: false
+  grove:
+    enabled: true
+    install: false
+  kai-scheduler:
+    enabled: true
+    install: false
+  nats:
+    install: true
+nats:
+  config:
+    jetstream:
+      fileStore:
+        pvc:
+          enabled: true
+          size: 10Gi
+          storageClassName: managed-csi
+  podTemplate:
+    merge:
+      spec:
+        tolerations:
+        - operator: Exists

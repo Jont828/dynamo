@@ -1,0 +1,9 @@
+# screen: kubectl get csidriver
+# ran:    kubectl --context h100 get csidriver
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+NAME                        ATTACHREQUIRED   PODINFOONMOUNT   STORAGECAPACITY   TOKENREQUESTS                REQUIRESREPUBLISH   MODES                  AGE
+azurelustre.csi.azure.com   false            true             false             <unset>                      false               Persistent             141d
+disk.csi.azure.com          true             false            false             <unset>                      false               Persistent             141d
+file.csi.azure.com          false            true             false             api://AzureADTokenExchange   false               Persistent,Ephemeral   141d
+localdisk.csi.acstor.io     false            true             true              <unset>                      false               Persistent,Ephemeral   117d

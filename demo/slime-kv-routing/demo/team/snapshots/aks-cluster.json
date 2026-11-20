@@ -1,0 +1,12 @@
+# screen: az aks show (filtered)
+# ran:    az aks show --subscription "$SUB" -g h100 -n h100 --query "{kubernetesVersion:currentKubernetesVersion, location:location, networkPlugin:networkProfile.networkPlugin, networkPluginMode:networkProfile.networkPluginMode, networkDataplane:networkProfile.networkDataplane, nodeResourceGroup:nodeResourceGroup}" -o json
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+{
+  "kubernetesVersion": "1.34.8",
+  "location": "southafricanorth",
+  "networkDataplane": "cilium",
+  "networkPlugin": "azure",
+  "networkPluginMode": "overlay",
+  "nodeResourceGroup": "MC_h100_h100_southafricanorth"
+}

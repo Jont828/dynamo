@@ -1,0 +1,5 @@
+# screen: (not shown) the ConfigMap's data, as JSON
+# ran:    kubectl --context h100 -n slime-kv get configmap slime-functions -o jsonpath='{.data}'
+# date:   2026-11-19T08:37:36Z (UTC), read-only
+# ---
+{"dynamo_generate.py":"import copy\nimport os\nfrom urllib.parse import urlsplit\n\nfrom slime.rollout.sglang_streaming_rollout import generate_streaming as slime_generate_streaming\n\n\nasync def generate_streaming(args, sample, sampling_params):\n    frontend = urlsplit(os.environ[\"DYNAMO_ROLLOUT_URL\"])\n    frontend_args = copy.copy(args)\n    frontend_args.sglang_router_ip = frontend.hostname\n    frontend_args.sglang_router_port = frontend.port\n    return await slime_generate_streaming(frontend_args, sample, sampling_params)\n\n\ngenerate_streaming.abort_mode = \"request\"\n","weight_permissions.py":"import os\n\n\ndef make_weights_readable(args, version_dir, rollout_engines):\n    for root, dirs, files in os.walk(version_dir):\n        for name in dirs:\n            os.chmod(os.path.join(root, name), 0o755)\n        for name in files:\n            os.chmod(os.path.join(root, name), 0o644)\n    os.chmod(version_dir, 0o755)\n"}

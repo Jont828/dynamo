@@ -1,0 +1,99 @@
+# slime trainer as a KubeRay RayJob. KubeRay creates a Ray cluster, submits train.sh as the Ray job
+# (K8sJobMode: a submitter pod runs `ray job submit` and tails the driver log), then deletes the
+# cluster when the job finishes.
+#   kubectl -n slime create configmap dynamo-slime-example \
+#     --from-file=<dynamo>/examples/rl/slime/launch-slime.sh --from-file=<dynamo>/examples/rl/slime/dynamo_generate.py
+#   kubectl apply -k rayjob/
+#   kubectl -n slime logs -f job/slime-dynamo        # driver log (after the submitter pod starts)
+#
+# Head-only cluster: the driver imports Transformer Engine, which needs libcuda, so the head must
+# have a GPU anyway; with a 1-GPU trainer the head can also host it. For multi-node training, keep
+# the head GPU and add workerGroupSpecs with the same image, volumes, and runtime env.
+apiVersion: ray.io/v1
+kind: RayJob
+metadata:
+  name: slime-dynamo
+  namespace: slime
+spec:
+  entrypoint: bash /opt/slime-dynamo/train.sh
+  # Ray workers do not inherit the driver's shell environment on a KubeRay cluster, so everything
+  # launch-slime.sh exports must also be in the job's runtime env.
+  runtimeEnvYAML: |
+    env_vars:
+      PYTHONPATH: "/opt/dynamo-example:/opt/slime-dynamo:/root/slime:/root/Megatron-LM"
+      DYNAMO_ROLLOUT_URL: "http://slime-sglang-rollout:8000"
+      CUDA_DEVICE_MAX_CONNECTIONS: "1"
+      NCCL_NVLS_ENABLE: "0"
+      PYTHONUNBUFFERED: "1"
+  shutdownAfterJobFinishes: true
+  ttlSecondsAfterFinished: 60
+  activeDeadlineSeconds: 3600
+  backoffLimit: 0
+  submitterPodTemplate:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        agentpool: ndh100pool
+      containers:
+        - name: ray-job-submitter
+          image: slimerl/slime:nightly-dev-20261027a-cu130
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+  rayClusterSpec:
+    rayVersion: "2.59.0"
+    headGroupSpec:
+      rayStartParams:
+        dashboard-host: "0.0.0.0"
+        num-gpus: "1"
+        disable-usage-stats: "true"
+      template:
+        spec:
+          nodeSelector:
+            agentpool: ndh100pool
+          containers:
+            - name: ray-head
+              image: slimerl/slime:nightly-dev-20261027a-cu130
+              ports:
+                - containerPort: 6379
+                  name: gcs-server
+                - containerPort: 8265
+                  name: dashboard
+                - containerPort: 10001
+                  name: client
+              resources:
+                requests:
+                  cpu: "16"
+                  memory: 200Gi
+                  nvidia.com/gpu: "1"
+                limits:
+                  memory: 200Gi
+                  nvidia.com/gpu: "1"
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: dshm
+                  mountPath: /dev/shm
+                - name: dynamo-example
+                  mountPath: /opt/dynamo-example
+                - name: scripts
+                  mountPath: /opt/slime-dynamo
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: slime-dynamo-data
+            # Replaces docker run --ipc=host --shm-size; also backs the Ray object store.
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 64Gi
+            # Unmodified launch-slime.sh and dynamo_generate.py from ai-dynamo/dynamo examples/rl/slime.
+            - name: dynamo-example
+              configMap:
+                name: dynamo-slime-example
+            - name: scripts
+              configMap:
+                name: slime-dynamo-scripts

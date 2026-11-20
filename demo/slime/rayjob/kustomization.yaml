@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - rayjob.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: slime-dynamo-scripts
+    namespace: slime
+    files:
+      - train.sh
+      - slime_dynamo_hooks.py

@@ -1,0 +1,6 @@
+# screen: kubectl get configmap -n $NAMESPACE slime-functions
+# ran:    kubectl --context h100 -n slime-kv get configmap slime-functions
+# date:   2026-11-19T08:37:36Z (UTC), read-only
+# ---
+NAME              DATA   AGE
+slime-functions   2      5d5h

@@ -1,0 +1,61 @@
+# Optional: pre-pull the large images (slime ~18.5 GB, Dynamo SGLang runtime ~14 GB) onto the GPU
+# nodes so pods start in seconds. Delete when the pods are Running:
+#   kubectl apply -f prepull.yaml
+#   kubectl -n slime rollout status ds/prepull-gpu ds/prepull-frontend
+#   kubectl delete -f prepull.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: prepull-gpu
+  namespace: slime
+spec:
+  selector:
+    matchLabels:
+      app: prepull-gpu
+  template:
+    metadata:
+      labels:
+        app: prepull-gpu
+    spec:
+      nodeSelector:
+        agentpool: ndh100pool
+      initContainers:
+        - name: slime
+          image: slimerl/slime:nightly-dev-20261027a-cu130
+          command: ["sh", "-c", "exit 0"]
+        - name: sglang-runtime
+          image: nvcr.io/nvidia/ai-dynamo/sglang-runtime:1.6.1
+          command: ["sh", "-c", "exit 0"]
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: prepull-frontend
+  namespace: slime
+spec:
+  selector:
+    matchLabels:
+      app: prepull-frontend
+  template:
+    metadata:
+      labels:
+        app: prepull-frontend
+    spec:
+      initContainers:
+        - name: frontend
+          image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:1.6.1
+          command: ["sh", "-c", "exit 0"]
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi

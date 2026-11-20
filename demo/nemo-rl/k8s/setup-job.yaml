@@ -1,0 +1,51 @@
+# One-time setup: fills the nemo-rl-dynamo-cache volume (scripts/setup-cache.sh) and pulls the image
+# onto the node the RayJobs use. CPU only. About 20 min the first time, most of it the image pull;
+# a re-run skips finished downloads. Prerequisite: kubectl apply -k .
+#
+#   kubectl apply -f k8s/setup-job.yaml
+#   kubectl -n nemo-rl-demo logs -f job/nemo-rl-dynamo-setup
+#   kubectl -n nemo-rl-demo wait --for=condition=complete job/nemo-rl-dynamo-setup --timeout=90m
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nemo-rl-dynamo-setup
+  namespace: nemo-rl-demo
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 5400
+  template:
+    metadata:
+      labels:
+        app: nemo-rl-dynamo-setup
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.azure.com/agentpool: ndh100pool
+        # The node the RayJobs use (k8s/rayjob*.yaml pin the same one), so the 17 GB image is pulled
+        # once, here. Pick a free one with: python3 tools/gpu_free.py --need 3 --pick
+        kubernetes.io/hostname: aks-ndh100pool-82423760-vmss000000
+      containers:
+        - name: setup
+          image: docker.io/jont828/nemo-rl:main-d51b2842-dynamo
+          command: ["bash", "/opt/nemo-rl-demo/setup-cache.sh"]
+          workingDir: /opt/nemo-rl
+          env:
+            - {name: HF_HOME, value: /cache/hf-home}
+            - {name: RUNS_DIR, value: /cache/runs}
+            - {name: PYTHONUNBUFFERED, value: "1"}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef: {name: hf-token-secret, key: HF_TOKEN, optional: true}
+          resources:
+            # CPU only: downloads, and formatting 1M dataset rows.
+            requests: {cpu: "8", memory: 64Gi}
+            limits: {cpu: "8", memory: 64Gi}
+          volumeMounts:
+            - {name: cache, mountPath: /cache}
+            - {name: scripts, mountPath: /opt/nemo-rl-demo}
+      volumes:
+        - name: cache
+          persistentVolumeClaim: {claimName: nemo-rl-dynamo-cache}
+        - name: scripts
+          configMap: {name: nemo-rl-dynamo-demo-scripts, defaultMode: 493}

@@ -1,0 +1,24 @@
+# screen: helm get values nfd -n node-feature-discovery
+# ran:    helm --kube-context h100 get values nfd -n node-feature-discovery
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+USER-SUPPLIED VALUES:
+enableNodeFeatureApi: true
+gc:
+  enable: true
+  tolerations:
+  - operator: Exists
+master:
+  enable: true
+  tolerations:
+  - operator: Exists
+topologyUpdater:
+  createCRDs: true
+  enable: true
+  kubeletStateDir: ""
+  tolerations:
+  - operator: Exists
+worker:
+  enable: true
+  tolerations:
+  - operator: Exists

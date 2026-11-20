@@ -1,0 +1,25 @@
+# screen: how the Lustre CSI driver was installed (images, kubectl apply annotation)
+# ran:    for o in daemonset/csi-azurelustre-node-noble daemonset/csi-azurelustre-node-jammy deployment/csi-azurelustre-controller; do echo "== $o"; kubectl --context h100 -n kube-system get $o -o jsonpath='created={.metadata.creationTimestamp} helm-managed-by={.metadata.labels.app\.kubernetes\.io/managed-by} last-applied={.metadata.annotations.kubectl\.kubernetes\.io/last-applied-configuration}' | sed -E 's/last-applied=\{.*/last-applied=(present: kubectl apply)/'; echo; kubectl --context h100 -n kube-system get $o -o jsonpath='{range .spec.template.spec.containers[*]}  {.name} {.image}{"\n"}{end}'; kubectl --context h100 -n kube-system get $o --no-headers | awk '{print "  ready: " $2 " " $3 " " $4}'; done
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+== daemonset/csi-azurelustre-node-noble
+created=2026-07-01T02:12:16Z helm-managed-by= last-applied=(present: kubectl apply)
+
+  liveness-probe mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.15.0
+  node-driver-registrar mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.13.0
+  azurelustre mcr.microsoft.com/oss/v2/kubernetes-csi/azurelustre-csi:v0.4.0-noble
+  ready: 8 8 8
+== daemonset/csi-azurelustre-node-jammy
+created=2026-07-01T02:12:14Z helm-managed-by= last-applied=(present: kubectl apply)
+
+  liveness-probe mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.15.0
+  node-driver-registrar mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.13.0
+  azurelustre mcr.microsoft.com/oss/v2/kubernetes-csi/azurelustre-csi:v0.4.0-jammy
+  ready: 0 0 0
+== deployment/csi-azurelustre-controller
+created=2026-07-01T02:11:26Z helm-managed-by= last-applied=(present: kubectl apply)
+
+  csi-provisioner mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v5.2.0
+  liveness-probe mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.15.0
+  azurelustre mcr.microsoft.com/oss/v2/kubernetes-csi/azurelustre-csi:v0.4.0-jammy
+  ready: 2/2 2 2

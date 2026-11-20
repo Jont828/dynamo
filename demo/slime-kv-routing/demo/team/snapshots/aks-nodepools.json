@@ -1,0 +1,28 @@
+# screen: az aks nodepool show (filtered), both pools
+# ran:    for p in ndh100pool nodepool1; do az aks nodepool show --subscription "$SUB" -g h100 --cluster-name h100 -n $p --query "{name:name, mode:mode, vmSize:vmSize, count:count, osSku:osSku, gpuProfile:gpuProfile, enableAutoScaling:enableAutoScaling, availabilityZones:availabilityZones, nodeImageVersion:nodeImageVersion}" -o json; done
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+{
+  "availabilityZones": null,
+  "count": 4,
+  "enableAutoScaling": false,
+  "gpuProfile": {
+    "driver": "None"
+  },
+  "mode": "User",
+  "name": "ndh100pool",
+  "nodeImageVersion": "AKSUbuntu-2404gen2containerd-202610.30.1",
+  "osSku": "Ubuntu2404",
+  "vmSize": "Standard_ND96isr_H100_v5"
+}
+{
+  "availabilityZones": null,
+  "count": 4,
+  "enableAutoScaling": false,
+  "gpuProfile": null,
+  "mode": "System",
+  "name": "nodepool1",
+  "nodeImageVersion": "AKSUbuntu-2404gen2containerd-202610.30.1",
+  "osSku": "Ubuntu2404",
+  "vmSize": "Standard_DS3_v2"
+}

@@ -1,0 +1,28 @@
+# Throwaway CPU-only Pod for reading files out of the Slime image and the
+# shared volume. Not part of the run. Delete when done.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: slime-inspect
+  namespace: slime-retool
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: aks-ndh100pool-82423760-vmss000003
+  restartPolicy: Never
+  containers:
+    - name: main
+      image: slimerl/slime:nightly-dev-20261027a-cu130
+      command: ["sleep", "86400"]
+      resources:
+        requests:
+          cpu: "2"
+          memory: 8Gi
+        limits:
+          memory: 8Gi
+      volumeMounts:
+        - name: slime-data
+          mountPath: /data
+  volumes:
+    - name: slime-data
+      persistentVolumeClaim:
+        claimName: slime-data

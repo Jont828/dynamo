@@ -1,0 +1,60 @@
+# One-time preparation on the shared volume (the "prepare" + "convert" steps of slime's quick start):
+# download Qwen3-0.6B and GSM8K, convert the HF checkpoint to Megatron torch_dist, and
+# create the weight-update directory. Idempotent: re-running skips finished steps.
+#   kubectl apply -f prepare-job.yaml && kubectl -n slime wait --for=condition=complete job/slime-dynamo-prepare --timeout=30m
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: slime-dynamo-prepare
+  namespace: slime
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        agentpool: ndh100pool
+      containers:
+        - name: prepare
+          image: slimerl/slime:nightly-dev-20261027a-cu130
+          command: ["bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              cd /root/slime
+              source scripts/models/qwen3-0.6B.sh
+              hf download Qwen/Qwen3-0.6B --local-dir /data/Qwen3-0.6B
+              hf download --repo-type dataset zhuzilin/gsm8k --local-dir /data/gsm8k
+              if [[ -f /data/Qwen3-0.6B_torch_dist/latest_checkpointed_iteration.txt ]]; then
+                echo "torch_dist checkpoint exists; skipping conversion"
+              else
+                PYTHONPATH=/root/Megatron-LM:/root/slime torchrun --nproc-per-node 1 --standalone \
+                  tools/convert_hf_to_torch_dist.py "${MODEL_ARGS[@]}" \
+                  --hf-checkpoint /data/Qwen3-0.6B --save /data/Qwen3-0.6B_torch_dist
+              fi
+              mkdir -p /data/weight-updates
+              ls -la /data
+          env:
+            - name: HF_HOME
+              value: /tmp/hf-home
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+            limits:
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: slime-dynamo-data
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi

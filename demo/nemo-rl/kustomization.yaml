@@ -1,0 +1,27 @@
+# kubectl apply -k .   creates what every run uses:
+#   - Namespace nemo-rl-demo
+#   - ConfigMap nemo-rl-dynamo-demo-scripts: scripts/ (mounted at /opt/nemo-rl-demo)
+#   - PVC nemo-rl-dynamo-cache: models, dataset, Megatron checkpoints and run logs
+# Then: kubectl apply -f k8s/setup-job.yaml (one-time), kubectl apply -f k8s/rayjob.yaml (each run).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: nemo-rl-demo
+resources:
+  - k8s/namespace.yaml
+  - k8s/cache-pvc.yaml
+configMapGenerator:
+  - name: nemo-rl-dynamo-demo-scripts
+    files:
+      - scripts/env.sh
+      - scripts/setup-cache.sh
+      - scripts/smoke-entrypoint.sh
+      - scripts/rayjob-entrypoint.sh
+      - scripts/watch_run.py
+      - scripts/report_run.py
+      - scripts/evidence.sh
+      # NeMo RL CI's Dynamo overlay test, unchanged (the image excludes tests/functional/; see scripts/ci/).
+      - ci-grpo_dp_single_controller.sh=scripts/ci/grpo_dp_single_controller.sh
+      - ci-check_dynamo_overlay.sh=scripts/ci/check_dynamo_overlay.sh
+generatorOptions:
+  # Fixed name, so the Job and RayJob manifests can reference it directly.
+  disableNameSuffixHash: true

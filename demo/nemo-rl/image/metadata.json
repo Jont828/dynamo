@@ -1,0 +1,114 @@
+{
+  "buildx.build.provenance": {
+    "builder": {
+      "id": ""
+    },
+    "buildType": "https://mobyproject.org/buildkit@v1",
+    "materials": [
+      {
+        "uri": "pkg:docker/docker/dockerfile@1",
+        "digest": {
+          "sha256": "4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e"
+        }
+      },
+      {
+        "uri": "pkg:docker/grafana/alloy@v1.18.0?platform=linux%2Famd64",
+        "digest": {
+          "sha256": "491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308"
+        }
+      },
+      {
+        "uri": "pkg:docker/nvcr.io/nvidia/cuda-dl-base@26.05-cuda13.2-devel-ubuntu24.04?platform=linux%2Famd64",
+        "digest": {
+          "sha256": "6ae12053998e865c0b7e2205833b35216f8c6c410c1ee860e98dbda45a5572e0"
+        }
+      }
+    ],
+    "invocation": {
+      "configSource": {
+        "entryPoint": "Dockerfile"
+      },
+      "parameters": {
+        "frontend": "gateway.v0",
+        "args": {
+          "build-arg:BUILD_DYNAMO": "1",
+          "build-arg:CUSTOM_SETUP_FNAME": "",
+          "build-arg:MAX_JOBS": "4",
+          "build-arg:NEMO_RL_COMMIT": "d51b2842e87403b4d1fbd008d28cd52694ced487",
+          "build-arg:NVTE_CUDA_ARCHS": "90",
+          "build-arg:SKIP_SGLANG_BUILD": "1",
+          "build-arg:SKIP_TRTLLM_BUILD": "1",
+          "build-arg:STRIP_UV_CACHE": "1",
+          "cmdline": "docker/dockerfile:1",
+          "context:nemo-rl": "local:nemo-rl",
+          "frontend.caps": "moby.buildkit.frontend.contexts+forward",
+          "sharedkey:localdir:nemo-rl": "nemo-rl:6f74045a0c123de7",
+          "source": "docker/dockerfile:1",
+          "target": "release"
+        },
+        "secrets": [
+          {
+            "id": "APPTAINER_GITHUB_TOKEN",
+            "optional": true
+          }
+        ],
+        "ssh": [
+          {
+            "id": "default",
+            "optional": true
+          }
+        ],
+        "locals": [
+          {
+            "name": "context"
+          },
+          {
+            "name": "dockerfile"
+          },
+          {
+            "name": "nemo-rl"
+          }
+        ],
+        "root": {
+          "configSource": {
+            "path": "Dockerfile"
+          },
+          "request": {
+            "args": {
+              "build-arg:BUILD_DYNAMO": "1",
+              "build-arg:CUSTOM_SETUP_FNAME": "",
+              "build-arg:MAX_JOBS": "4",
+              "build-arg:NEMO_RL_COMMIT": "d51b2842e87403b4d1fbd008d28cd52694ced487",
+              "build-arg:NVTE_CUDA_ARCHS": "90",
+              "build-arg:SKIP_SGLANG_BUILD": "1",
+              "build-arg:SKIP_TRTLLM_BUILD": "1",
+              "build-arg:STRIP_UV_CACHE": "1",
+              "context:nemo-rl": "local:nemo-rl",
+              "frontend.caps": "moby.buildkit.frontend.contexts+forward",
+              "sharedkey:localdir:nemo-rl": "nemo-rl:6f74045a0c123de7",
+              "target": "release",
+              "vcs:localdir:context": ".",
+              "vcs:localdir:dockerfile": "docker",
+              "vcs:localdir:nemo-rl": ".",
+              "vcs:revision": "d51b2842e87403b4d1fbd008d28cd52694ced487",
+              "vcs:source": "https://github.com/NVIDIA-NeMo/RL.git"
+            }
+          }
+        },
+        "compatibilityVersion": 30
+      },
+      "environment": {
+        "platform": "linux/amd64",
+        "targetPlatform": "linux/amd64"
+      }
+    }
+  },
+  "buildx.build.ref": "nemo-rl-builder/nemo-rl-builder0/ih06vg0bfh3awpdyyw27qgltu",
+  "containerimage.descriptor": {
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "digest": "sha256:f1008ba75c64a7a8a02aa9a74f11b76f052e9ac7e4dd2106c11d8c373e7b6fc4",
+    "size": 857
+  },
+  "containerimage.digest": "sha256:f1008ba75c64a7a8a02aa9a74f11b76f052e9ac7e4dd2106c11d8c373e7b6fc4",
+  "image.name": "docker.io/jont828/nemo-rl:main-d51b2842-dynamo"
+}

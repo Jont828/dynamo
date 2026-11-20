@@ -1,0 +1,22 @@
+# Cache for the verl build, wheelhouse, model, data and run logs. Created by `kubectl apply -k .`.
+#
+# A Premium SSD Azure Disk (ReadWriteOnce): it attaches to whichever node runs the setup Job or the Ray
+# head, so the RayJob can use any free GPU node, and it survives node reimages. Deleting this PVC
+# deletes the disk.
+#
+# Don't use node-local NVMe from Azure Container Storage (`kaito-local-nvme-disk`) here: its PVs carry
+# no node affinity, so a pod can land on another node, and the failover reconciler then deletes the
+# original volume. For multi-node training, use a ReadWriteMany volume instead (Azure Managed Lustre,
+# or `azurefile-csi-premium`) so Ray worker pods can mount the same cache.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: verl-dynamo-cache
+  namespace: default
+spec:
+  storageClassName: managed-csi-premium
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      # 512 GiB (P20) for 150 MB/s throughput; the cache itself needs ~20 GiB plus run logs.
+      storage: 512Gi

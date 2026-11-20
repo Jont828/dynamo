@@ -1,0 +1,5 @@
+# screen: (not shown) zhuzilin/gsm8k split sizes, from the Hugging Face dataset viewer API
+# ran:    curl -sS 'https://datasets-server.huggingface.co/size?dataset=zhuzilin/gsm8k'
+# date:   2026-11-19T07:52:15Z (UTC), read-only
+# ---
+{"size":{"dataset":{"dataset":"zhuzilin/gsm8k","num_bytes_original_files":3954389,"num_bytes_parquet_files":3954389,"num_bytes_memory":7655218,"num_rows":8792,"estimated_num_rows":null},"configs":[{"dataset":"zhuzilin/gsm8k","config":"default","num_bytes_original_files":3954389,"num_bytes_parquet_files":3954389,"num_bytes_memory":7655218,"num_rows":8792,"num_columns":4,"estimated_num_rows":null}],"splits":[{"dataset":"zhuzilin/gsm8k","config":"default","split":"train","num_bytes_parquet_files":3347161,"num_bytes_memory":6488688,"num_rows":7473,"num_columns":4,"estimated_num_rows":null},{"dataset":"zhuzilin/gsm8k","config":"default","split":"test","num_bytes_parquet_files":607228,"num_bytes_memory":1166530,"num_rows":1319,"num_columns":4,"estimated_num_rows":null}]},"pending":[],"failed":[],"partial":false}

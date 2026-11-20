@@ -1,0 +1,40 @@
+# Prints the raw Dynamo evidence from the newest training run (scripts/evidence.sh): the frontend's own
+# routing lines from run.log on the cache volume, counted per engine. CPU only, a few seconds.
+#
+#   kubectl apply -f k8s/evidence-job.yaml
+#   kubectl -n nemo-rl-demo wait --for=condition=complete job/nemo-rl-dynamo-evidence --timeout=5m
+#   kubectl -n nemo-rl-demo logs job/nemo-rl-dynamo-evidence
+#   kubectl -n nemo-rl-demo delete job nemo-rl-dynamo-evidence
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nemo-rl-dynamo-evidence
+  namespace: nemo-rl-demo
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: nemo-rl-dynamo-evidence
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      nodeSelector:
+        # The cache disk is ReadWriteOnce: same node as the RayJob, where the image is also cached.
+        kubernetes.io/hostname: aks-ndh100pool-82423760-vmss000000
+      containers:
+        - name: evidence
+          image: docker.io/jont828/nemo-rl:main-d51b2842-dynamo
+          command: ["bash", "/opt/nemo-rl-demo/evidence.sh"]
+          resources:
+            requests: {cpu: "1", memory: 2Gi}
+            limits: {cpu: "2", memory: 4Gi}
+          volumeMounts:
+            - {name: cache, mountPath: /cache, readOnly: true}
+            - {name: scripts, mountPath: /opt/nemo-rl-demo}
+      volumes:
+        - name: cache
+          persistentVolumeClaim: {claimName: nemo-rl-dynamo-cache}
+        - name: scripts
+          configMap: {name: nemo-rl-dynamo-demo-scripts, defaultMode: 493}

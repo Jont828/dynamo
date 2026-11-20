@@ -1,0 +1,8 @@
+# screen: az network vnet subnet show (the AMLFS subnet, filtered)
+# ran:    az network vnet subnet show --subscription "$SUB" -g MC_h100_h100_southafricanorth --vnet-name $(az network vnet list --subscription "$SUB" -g MC_h100_h100_southafricanorth --query '[0].name' -o tsv) -n amlfs-subnet --query "{name:name, addressPrefix:addressPrefix}" -o json
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+{
+  "addressPrefix": "10.225.0.0/28",
+  "name": "amlfs-subnet"
+}

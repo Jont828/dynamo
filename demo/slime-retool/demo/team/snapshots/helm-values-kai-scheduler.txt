@@ -1,0 +1,12 @@
+# screen: helm get values kai-scheduler -n kai-scheduler
+# ran:    helm --kube-context h100 get values kai-scheduler -n kai-scheduler
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+USER-SUPPLIED VALUES:
+admission:
+  gpuPodRuntimeClassName: ""
+global:
+  tolerations:
+  - operator: Exists
+postCleanup:
+  enabled: false

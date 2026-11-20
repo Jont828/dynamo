@@ -1,0 +1,140 @@
+# Slime ReTool GRPO run as a KubeRay RayJob, with rollouts served by the Dynamo
+# DGD in dgd.yaml (KV-aware routing) instead of engines that Slime launches.
+#
+# Arguments: THUDM/slime examples/retool/retool_qwen3_4b_rl.sh (identical in the
+# image and on main at 79aa41a8), grouped as upstream groups them, with these
+# changes (the kit README lists every change and its reason):
+#   - dropped: --colocate, --rollout-num-gpus-per-engine 2 and
+#     --sglang-mem-fraction-static 0.7 (the DGD runs the engines), wandb, AIME
+#     eval, --save/--save-interval, --apply-chat-template (see PATCH(prompt));
+#   - added: the Slime tutorial's external-engine and disk weight-sync flags,
+#     --custom-generate/--custom-rm from the patched generate_with_retool.py,
+#     --sglang-incremental-streaming-output, and --rollout-stop '</code>' '</tool_call>';
+#   - changed: --num-rollout 3000 -> 10, paths under /data.
+# MODEL_ARGS are scripts/models/qwen3-4B.sh from the image, with --rotary-base
+# 5000000 as upstream passes it in CKPT_ARGS.
+apiVersion: ray.io/v1
+kind: RayJob
+metadata:
+  name: slime-retool
+spec:
+  entrypoint: >-
+    python3 /root/slime/train.py
+    --actor-num-nodes 1
+    --actor-num-gpus-per-node 4
+    --rollout-external-engine-addrs slime-sglang-engine-0:30000 slime-sglang-engine-1:30000 slime-sglang-engine-2:30000 slime-sglang-engine-3:30000
+    --sglang-incremental-streaming-output
+    --update-weight-transport disk
+    --update-weight-disk-dir /data/weight-updates
+    --custom-update-weight-post-write-path weight_permissions.make_weights_readable
+    --swiglu
+    --num-layers 36
+    --hidden-size 2560
+    --ffn-hidden-size 9728
+    --num-attention-heads 32
+    --group-query-attention
+    --num-query-groups 8
+    --use-rotary-position-embeddings
+    --disable-bias-linear
+    --normalization RMSNorm
+    --norm-epsilon 1e-6
+    --rotary-base 5000000
+    --vocab-size 151936
+    --kv-channels 128
+    --qk-layernorm
+    --hf-checkpoint /data/models/qwen3-4b-sft
+    --ref-load /data/models/qwen3-4b-sft_torch_dist
+    --prompt-data /data/datasets/dapo-math-17k/dapo-math-17k.jsonl
+    --input-key prompt
+    --label-key label
+    --rollout-shuffle
+    --reward-key score
+    --num-rollout 10
+    --rollout-batch-size 32
+    --n-samples-per-prompt 8
+    --rollout-max-response-len 131072
+    --rollout-temperature 1
+    --rollout-stop '</code>' '</tool_call>'
+    --global-batch-size 256
+    --balance-data
+    --optimizer-cpu-offload
+    --overlap-cpu-optimizer-d2h-h2d
+    --use-precision-aware-optimizer
+    --optimizer adam
+    --lr 1e-6
+    --lr-decay-style constant
+    --weight-decay 0.1
+    --adam-beta1 0.9
+    --adam-beta2 0.98
+    --advantage-estimator grpo
+    --use-kl-loss
+    --kl-loss-coef 0.00
+    --kl-loss-type low_var_kl
+    --entropy-coef 0.00
+    --eps-clip 0.2
+    --eps-clip-high 0.28
+    --tensor-model-parallel-size 2
+    --sequence-parallel
+    --pipeline-model-parallel-size 1
+    --context-parallel-size 2
+    --expert-model-parallel-size 1
+    --expert-tensor-parallel-size 1
+    --recompute-granularity full
+    --recompute-method uniform
+    --recompute-num-layers 1
+    --use-dynamic-batch-size
+    --log-probs-chunk-size 1024
+    --max-tokens-per-gpu 9216
+    --attention-dropout 0.0
+    --hidden-dropout 0.0
+    --accumulate-allreduce-grads-in-fp32
+    --attention-softmax-in-fp32
+    --attention-backend flash
+    --custom-generate-function-path generate_with_retool.generate
+    --custom-rm-path generate_with_retool.reward_func
+  runtimeEnvYAML: |
+    env_vars:
+      PYTHONPATH: "/root/Megatron-LM:/root/slime:/opt/slime-functions"
+      PYTHONUNBUFFERED: "1"
+      CUDA_DEVICE_MAX_CONNECTIONS: "1"
+      DYNAMO_ROLLOUT_URL: "http://slime-sglang-frontend:8000"
+      RETOOL_TURN_LOG_DIR: "/data/turn-logs/run1"
+  shutdownAfterJobFinishes: true
+  ttlSecondsAfterFinished: 600
+  rayClusterSpec:
+    rayVersion: "2.59.0"
+    headGroupSpec:
+      rayStartParams: {}
+      template:
+        spec:
+          containers:
+            - name: ray-head
+              image: slimerl/slime:nightly-dev-20261027a-cu130
+              resources:
+                # 4 GPUs for Megatron-LM (TP2 x CP2). CPU and memory for the CPU
+                # optimizer offload and the sandbox's Python subprocesses.
+                requests:
+                  cpu: "48"
+                  memory: 400Gi
+                  nvidia.com/gpu: "4"
+                limits:
+                  memory: 400Gi
+                  nvidia.com/gpu: "4"
+              volumeMounts:
+                - name: slime-data
+                  mountPath: /data
+                - name: slime-functions
+                  mountPath: /opt/slime-functions
+                - name: dshm
+                  mountPath: /dev/shm
+          volumes:
+            - name: slime-data
+              persistentVolumeClaim:
+                claimName: slime-data
+            - name: slime-functions
+              configMap:
+                name: slime-retool-functions
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 64Gi

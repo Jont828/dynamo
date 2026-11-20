@@ -1,0 +1,6 @@
+# screen: kubectl get storageclass azurelustre-static
+# ran:    kubectl --context h100 get storageclass azurelustre-static
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+NAME                 PROVISIONER                 RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+azurelustre-static   azurelustre.csi.azure.com   Retain          Immediate           false                  141d

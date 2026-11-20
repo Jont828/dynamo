@@ -1,0 +1,57 @@
+# Shared storage for the slime + Dynamo demo on AKS (Azure Managed Lustre).
+#
+# Everything lives in ONE Lustre sub-directory (slime-dynamo/) instead of the filesystem root:
+#   /data/Qwen3-0.6B             HF checkpoint (trainer + SGLang engines load it)
+#   /data/Qwen3-0.6B_torch_dist  Megatron checkpoint for the trainer
+#   /data/gsm8k                  prompts (GSM8K train split)
+#   /data/weight-updates         disk-transport weight syncs (trainer writes, engines read)
+#
+# Why a sub-dir PV: the Dynamo operator runs DGD pods with securityContext.fsGroup=1000 and the
+# Lustre CSI driver declares fsGroupPolicy=File, so kubelet recursively chowns the whole volume on
+# every mount. Mounting the filesystem root (even with subPath) would chown every file on the shared
+# filesystem. A sub-dir volume limits that to this demo's few hundred files.
+#
+# Edit mgs-ip-address / fs name (lustrefs) for your filesystem.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: slime
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-lustre-slime-dynamo
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: azurelustre-static
+  mountOptions:
+    - noatime
+    - flock
+  csi:
+    driver: azurelustre.csi.azure.com
+    # <unique-name>#<fs-name>#<mgs-ip>#<sub-dir>#f#
+    volumeHandle: pv-lustre-slime-dynamo#lustrefs#10.225.0.10#slime-dynamo#f#
+    volumeAttributes:
+      mgs-ip-address: 10.225.0.10
+      sub-dir: slime-dynamo
+  claimRef:
+    namespace: slime
+    name: slime-dynamo-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: slime-dynamo-data
+  namespace: slime
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: azurelustre-static
+  volumeName: pv-lustre-slime-dynamo
+  resources:
+    requests:
+      storage: 1Ti

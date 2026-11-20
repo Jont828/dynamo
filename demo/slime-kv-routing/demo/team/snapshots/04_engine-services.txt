@@ -1,0 +1,6 @@
+# screen: (not shown) the engine Services from manifests/tutorial/engine-services.yaml
+# ran:    kubectl --context h100 -n slime-kv get svc slime-sglang-engine-0 slime-sglang-engine-1 -o jsonpath='{range .items[*]}service/{.metadata.name} created={.metadata.creationTimestamp} type={.spec.type} selector={.spec.selector} ports={.spec.ports}{"\n"}{end}'
+# date:   2026-11-19T07:57:03Z (UTC), read-only
+# ---
+service/slime-sglang-engine-0 created=2026-11-14T03:13:26Z type=ClusterIP selector={"dynamo.nvidia.com/slime-role":"worker-0"} ports=[{"name":"sglang-http","port":30000,"protocol":"TCP","targetPort":30000}]
+service/slime-sglang-engine-1 created=2026-11-14T03:13:27Z type=ClusterIP selector={"dynamo.nvidia.com/slime-role":"worker-1"} ports=[{"name":"sglang-http","port":30000,"protocol":"TCP","targetPort":30000}]

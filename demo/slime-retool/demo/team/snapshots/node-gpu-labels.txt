@@ -1,0 +1,16 @@
+# screen: GPU Operator labels on the run's node (filtered)
+# ran:    kubectl --context h100 get node aks-ndh100pool-82423760-vmss000003 -o go-template='{{range $k, $v := .metadata.labels}}{{$k}}={{$v}}{{"\n"}}{{end}}' | grep -E '^(nvidia\.com/(gpu\.(product|count|memory|family|present)|cuda\.(driver-version\.full|runtime-version\.full)|mig\.config)|kubernetes\.azure\.com/(accelerator|os-sku-effective|node-image-version)|node\.kubernetes\.io/instance-type)='
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+kubernetes.azure.com/accelerator=nvidia
+kubernetes.azure.com/node-image-version=AKSUbuntu-2404gen2containerd-202610.30.1
+kubernetes.azure.com/os-sku-effective=Ubuntu2404
+node.kubernetes.io/instance-type=Standard_ND96isr_H100_v5
+nvidia.com/cuda.driver-version.full=580.126.20
+nvidia.com/cuda.runtime-version.full=13.0
+nvidia.com/gpu.count=8
+nvidia.com/gpu.family=hopper
+nvidia.com/gpu.memory=81559
+nvidia.com/gpu.present=true
+nvidia.com/gpu.product=NVIDIA-H100-80GB-HBM3
+nvidia.com/mig.config=all-disabled

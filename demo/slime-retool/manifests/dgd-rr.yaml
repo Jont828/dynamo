@@ -1,0 +1,271 @@
+# Round-robin baseline for the ReTool run. Identical to dgd.yaml (the same frontend
+# image and the same four 1-GPU SGLang engines, still with --page-size 16 and ZMQ KV
+# events) except for the frontend's router settings:
+#   frontend: DYN_ROUTER_MODE=round-robin (dgd.yaml: kv). DYN_ROUTER_PREDICTED_TTL_SECS
+#             is dropped because only the KV router reads it, as in the earlier kit's
+#             control config (../slime-kv-routing/manifests/control/dgd.yaml).
+#             DYN_SGLANG_ENABLE_GENERATE=1 is kept.
+# The engines are unchanged, so the runs differ only in which engine serves each request.
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: slime-sglang
+spec:
+  backendFramework: sglang
+  components:
+  - name: frontend
+    type: frontend
+    replicas: 1
+    podTemplate:
+      metadata:
+        labels:
+          dynamo.nvidia.com/slime-role: frontend
+      spec:
+        containers:
+        - name: main
+          image: nvcr.io/nvidia/ai-dynamo/dynamo-frontend:1.6.1
+          env:
+          - name: DYN_SGLANG_ENABLE_GENERATE
+            value: '1'
+          - name: DYN_ROUTER_MODE
+            value: round-robin
+  - name: worker-0
+    type: worker
+    replicas: 1
+    podTemplate:
+      metadata:
+        labels:
+          dynamo.nvidia.com/slime-role: worker-0
+      spec:
+        volumes:
+        - name: slime-data
+          persistentVolumeClaim:
+            claimName: slime-data
+        containers:
+        - name: main
+          image: nvcr.io/nvidia/ai-dynamo/sglang-runtime:1.6.1
+          command:
+          - python3
+          - -m
+          - sglang.launch_server
+          args:
+          - --model-path
+          - /data/models/qwen3-4b-sft
+          - --served-model-name
+          - font-info/qwen3-4b-sft-SGLang-RL
+          - --host
+          - 0.0.0.0
+          - --port
+          - '30000'
+          - --grpc-port
+          - '30001'
+          - --incremental-streaming-output
+          - --page-size
+          - '16'
+          - --kv-events-config
+          - '{"publisher":"zmq","endpoint":"tcp://*:5557","topic":""}'
+          - --sidecar
+          - dynamo.sglang.sidecar
+          - --sidecar-args
+          - '["--grpc-endpoint","http://127.0.0.1:30001"]'
+          resources:
+            requests:
+              nvidia.com/gpu: '1'
+            limits:
+              nvidia.com/gpu: '1'
+          volumeMounts:
+          - name: slime-data
+            mountPath: /data
+          startupProbe:
+            httpGet:
+              path: /health_generate
+              port: 30000
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /health_generate
+              port: 30000
+            periodSeconds: 10
+            timeoutSeconds: 5
+  - name: worker-1
+    type: worker
+    replicas: 1
+    podTemplate:
+      metadata:
+        labels:
+          dynamo.nvidia.com/slime-role: worker-1
+      spec:
+        volumes:
+        - name: slime-data
+          persistentVolumeClaim:
+            claimName: slime-data
+        containers:
+        - name: main
+          image: nvcr.io/nvidia/ai-dynamo/sglang-runtime:1.6.1
+          command:
+          - python3
+          - -m
+          - sglang.launch_server
+          args:
+          - --model-path
+          - /data/models/qwen3-4b-sft
+          - --served-model-name
+          - font-info/qwen3-4b-sft-SGLang-RL
+          - --host
+          - 0.0.0.0
+          - --port
+          - '30000'
+          - --grpc-port
+          - '30001'
+          - --incremental-streaming-output
+          - --page-size
+          - '16'
+          - --kv-events-config
+          - '{"publisher":"zmq","endpoint":"tcp://*:5557","topic":""}'
+          - --sidecar
+          - dynamo.sglang.sidecar
+          - --sidecar-args
+          - '["--grpc-endpoint","http://127.0.0.1:30001"]'
+          resources:
+            requests:
+              nvidia.com/gpu: '1'
+            limits:
+              nvidia.com/gpu: '1'
+          volumeMounts:
+          - name: slime-data
+            mountPath: /data
+          startupProbe:
+            httpGet:
+              path: /health_generate
+              port: 30000
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /health_generate
+              port: 30000
+            periodSeconds: 10
+            timeoutSeconds: 5
+  - name: worker-2
+    type: worker
+    replicas: 1
+    podTemplate:
+      metadata:
+        labels:
+          dynamo.nvidia.com/slime-role: worker-2
+      spec:
+        volumes:
+        - name: slime-data
+          persistentVolumeClaim:
+            claimName: slime-data
+        containers:
+        - name: main
+          image: nvcr.io/nvidia/ai-dynamo/sglang-runtime:1.6.1
+          command:
+          - python3
+          - -m
+          - sglang.launch_server
+          args:
+          - --model-path
+          - /data/models/qwen3-4b-sft
+          - --served-model-name
+          - font-info/qwen3-4b-sft-SGLang-RL
+          - --host
+          - 0.0.0.0
+          - --port
+          - '30000'
+          - --grpc-port
+          - '30001'
+          - --incremental-streaming-output
+          - --page-size
+          - '16'
+          - --kv-events-config
+          - '{"publisher":"zmq","endpoint":"tcp://*:5557","topic":""}'
+          - --sidecar
+          - dynamo.sglang.sidecar
+          - --sidecar-args
+          - '["--grpc-endpoint","http://127.0.0.1:30001"]'
+          resources:
+            requests:
+              nvidia.com/gpu: '1'
+            limits:
+              nvidia.com/gpu: '1'
+          volumeMounts:
+          - name: slime-data
+            mountPath: /data
+          startupProbe:
+            httpGet:
+              path: /health_generate
+              port: 30000
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /health_generate
+              port: 30000
+            periodSeconds: 10
+            timeoutSeconds: 5
+  - name: worker-3
+    type: worker
+    replicas: 1
+    podTemplate:
+      metadata:
+        labels:
+          dynamo.nvidia.com/slime-role: worker-3
+      spec:
+        volumes:
+        - name: slime-data
+          persistentVolumeClaim:
+            claimName: slime-data
+        containers:
+        - name: main
+          image: nvcr.io/nvidia/ai-dynamo/sglang-runtime:1.6.1
+          command:
+          - python3
+          - -m
+          - sglang.launch_server
+          args:
+          - --model-path
+          - /data/models/qwen3-4b-sft
+          - --served-model-name
+          - font-info/qwen3-4b-sft-SGLang-RL
+          - --host
+          - 0.0.0.0
+          - --port
+          - '30000'
+          - --grpc-port
+          - '30001'
+          - --incremental-streaming-output
+          - --page-size
+          - '16'
+          - --kv-events-config
+          - '{"publisher":"zmq","endpoint":"tcp://*:5557","topic":""}'
+          - --sidecar
+          - dynamo.sglang.sidecar
+          - --sidecar-args
+          - '["--grpc-endpoint","http://127.0.0.1:30001"]'
+          resources:
+            requests:
+              nvidia.com/gpu: '1'
+            limits:
+              nvidia.com/gpu: '1'
+          volumeMounts:
+          - name: slime-data
+            mountPath: /data
+          startupProbe:
+            httpGet:
+              path: /health_generate
+              port: 30000
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /health_generate
+              port: 30000
+            periodSeconds: 10
+            timeoutSeconds: 5

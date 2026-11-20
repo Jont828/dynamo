@@ -1,0 +1,45 @@
+# One Service per engine. Slime reads /server_info and posts weight updates
+# to each engine directly; rollouts go through the Dynamo frontend.
+apiVersion: v1
+kind: Service
+metadata:
+  name: slime-sglang-engine-0
+spec:
+  selector:
+    dynamo.nvidia.com/slime-role: worker-0
+  ports:
+  - name: sglang-http
+    port: 30000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slime-sglang-engine-1
+spec:
+  selector:
+    dynamo.nvidia.com/slime-role: worker-1
+  ports:
+  - name: sglang-http
+    port: 30000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slime-sglang-engine-2
+spec:
+  selector:
+    dynamo.nvidia.com/slime-role: worker-2
+  ports:
+  - name: sglang-http
+    port: 30000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slime-sglang-engine-3
+spec:
+  selector:
+    dynamo.nvidia.com/slime-role: worker-3
+  ports:
+  - name: sglang-http
+    port: 30000

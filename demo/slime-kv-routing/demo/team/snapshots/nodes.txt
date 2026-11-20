@@ -1,0 +1,13 @@
+# screen: kubectl get nodes -L node.kubernetes.io/instance-type,nvidia.com/gpu.count
+# ran:    kubectl --context h100 get nodes -L node.kubernetes.io/instance-type,nvidia.com/gpu.count
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+NAME                                 STATUS   ROLES    AGE   VERSION   INSTANCE-TYPE              GPU.COUNT
+aks-ndh100pool-82423760-vmss000000   Ready    <none>   13d   v1.34.8   Standard_ND96isr_H100_v5   8
+aks-ndh100pool-82423760-vmss000001   Ready    <none>   13d   v1.34.8   Standard_ND96isr_H100_v5   8
+aks-ndh100pool-82423760-vmss000002   Ready    <none>   13d   v1.34.8   Standard_ND96isr_H100_v5   8
+aks-ndh100pool-82423760-vmss000003   Ready    <none>   13d   v1.34.8   Standard_ND96isr_H100_v5   8
+aks-nodepool1-47398148-vmss000000    Ready    <none>   13d   v1.34.8   Standard_DS3_v2            
+aks-nodepool1-47398148-vmss000001    Ready    <none>   13d   v1.34.8   Standard_DS3_v2            
+aks-nodepool1-47398148-vmss000002    Ready    <none>   13d   v1.34.8   Standard_DS3_v2            
+aks-nodepool1-47398148-vmss000003    Ready    <none>   13d   v1.34.8   Standard_DS3_v2            

@@ -1,0 +1,17 @@
+# screen: (not shown) Qwen3-0.6B chat template: the system-message branch and the generation prompt
+# ran:    curl -sSL 'https://huggingface.co/Qwen/Qwen3-0.6B/raw/main/tokenizer_config.json' | python3 -c '<print the two template parts below, and whether the template holds "helpful" or "boxed">'
+# date:   2026-11-19T07:58:46Z (UTC), read-only
+# ---
+{%- else %}
+    {%- if messages[0].role == 'system' %}
+        {{- '<|im_start|>system\n' + messages[0].content + '<|im_end|>\n' }}
+    {%- endif %}
+{%- endif %}
+...
+{%- if add_generation_prompt %}
+    {{- '<|im_start|>assistant\n' }}
+    {%- if enable_thinking is defined and enable_thinking is false %}
+        {{- '<think>\n\n</think>\n\n' }}
+    {%- endif %}
+{%- endif %}
+template contains helpful/boxed: False False

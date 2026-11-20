@@ -1,0 +1,7 @@
+# screen: kubectl get svc -n $NAMESPACE slime-sglang-engine-0 slime-sglang-engine-1
+# ran:    kubectl --context h100 -n slime-kv get svc slime-sglang-engine-0 slime-sglang-engine-1
+# date:   2026-11-19T08:37:36Z (UTC), read-only
+# ---
+NAME                    TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)     AGE
+slime-sglang-engine-0   ClusterIP   10.0.154.176   <none>        30000/TCP   5d5h
+slime-sglang-engine-1   ClusterIP   10.0.126.80    <none>        30000/TCP   5d5h

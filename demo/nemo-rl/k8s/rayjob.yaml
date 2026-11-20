@@ -1,0 +1,86 @@
+# GRPO training of Qwen/Qwen2.5-1.5B on OpenMathInstruct-2 with NeMo RL, every rollout served through
+# Dynamo's frontend and KV-aware router, as a KubeRay RayJob.
+# Prerequisites: KubeRay operator, `kubectl apply -k .`, and a completed k8s/setup-job.yaml.
+#
+#   kubectl apply -f k8s/rayjob.yaml
+#   kubectl -n nemo-rl-demo wait --for=jsonpath='{.status.jobDeploymentStatus}'=Running rayjob/nemo-rl-grpo-demo --timeout=15m
+#   kubectl -n nemo-rl-demo logs -f job/nemo-rl-grpo-demo      # live training view, then the report
+#   kubectl -n nemo-rl-demo get rayjob nemo-rl-grpo-demo       # JOB STATUS, DEPLOYMENT STATUS
+#   kubectl -n nemo-rl-demo delete rayjob nemo-rl-grpo-demo    # before submitting the next run
+#
+# KubeRay creates a one-pod Ray cluster (the head holds 3 GPUs), waits until it is healthy, then a small
+# submitter Job runs `ray job submit -- <entrypoint>` and follows the driver's output. NeMo RL's driver
+# joins that Ray cluster, starts etcd, NATS and dynamo.frontend itself, and its two vLLM engines register
+# with the frontend. When the job ends, KubeRay deletes the cluster, which stops every process with it.
+apiVersion: ray.io/v1
+kind: RayJob
+metadata:
+  name: nemo-rl-grpo-demo
+  namespace: nemo-rl-demo
+spec:
+  # NeMo RL's entrypoint (examples/run_grpo_single_controller.py) is inside rayjob-entrypoint.sh; the
+  # wrapper adds the live view and the report. Change STEPS here; extra NeMo RL overrides go after it.
+  entrypoint: STEPS=25 bash /opt/nemo-rl-demo/rayjob-entrypoint.sh
+  submissionMode: K8sJobMode
+  shutdownAfterJobFinishes: true
+  ttlSecondsAfterFinished: 30
+  # Hard cap for the whole run, startup included: KubeRay stops the job and deletes the cluster.
+  activeDeadlineSeconds: 3600
+  backoffLimit: 0
+  submitterPodTemplate:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: aks-ndh100pool-82423760-vmss000000
+      containers:
+        - name: ray-job-submitter
+          # Only runs the `ray` CLI; same Ray as NeMo RL's uv.lock.
+          image: rayproject/ray:2.58.0-py313
+          resources:
+            requests: {cpu: 200m, memory: 512Mi}
+            limits: {cpu: "1", memory: 1Gi}
+  rayClusterSpec:
+    # NeMo RL's uv.lock pins ray 2.58.0. >= 2.53 also makes KubeRay use HTTP health probes.
+    rayVersion: "2.58.0"
+    headGroupSpec:
+      rayStartParams: {}
+      template:
+        spec:
+          enableServiceLinks: false
+          nodeSelector:
+            kubernetes.azure.com/agentpool: ndh100pool
+            # Where k8s/setup-job.yaml pulled the image.
+            kubernetes.io/hostname: aks-ndh100pool-82423760-vmss000000
+          containers:
+            - name: ray-head
+              # PATH starts with /opt/nemo_rl_venv/bin, so KubeRay's `ray start` runs NeMo RL's own Ray.
+              image: docker.io/jont828/nemo-rl:main-d51b2842-dynamo
+              workingDir: /opt/nemo-rl
+              env:
+                - {name: HF_HOME, value: /cache/hf-home}
+                - {name: RUNS_DIR, value: /cache/runs}
+                - {name: VLLM_CACHE_ROOT, value: /cache/vllm-cache}
+                - {name: PYTHONUNBUFFERED, value: "1"}
+                # Keep both engines' lines in the log instead of "[repeated 2x across cluster]".
+                - {name: RAY_DEDUP_LOGS, value: "0"}
+                - name: HF_TOKEN
+                  valueFrom:
+                    secretKeyRef: {name: hf-token-secret, key: HF_TOKEN, optional: true}
+              resources:
+                # 1 GPU for the Megatron trainer, 2 for the vLLM engines (one each, TP 1).
+                requests: {cpu: "32", memory: 320Gi, nvidia.com/gpu: "3"}
+                limits: {cpu: "32", memory: 320Gi, nvidia.com/gpu: "3"}
+              volumeMounts:
+                - {name: cache, mountPath: /cache}
+                - {name: scripts, mountPath: /opt/nemo-rl-demo}
+                - {name: dshm, mountPath: /dev/shm}
+          volumes:
+            - name: cache
+              persistentVolumeClaim: {claimName: nemo-rl-dynamo-cache}
+            - name: scripts
+              configMap: {name: nemo-rl-dynamo-demo-scripts, defaultMode: 493}
+            - name: dshm
+              emptyDir: {medium: Memory, sizeLimit: 128Gi}
+    # One pod is enough for a 1.5B model. Multi-node would add a worker group with the same template and
+    # a ReadWriteMany cache.
+    workerGroupSpecs: []

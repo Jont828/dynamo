@@ -1,0 +1,11 @@
+# screen: helm list -A --filter 'gpu-operator|nfd|kuberay|kai|grove|dynamo' | cut -f1,2,5,6
+# ran:    helm --kube-context h100 list -A --filter 'gpu-operator|nfd|kuberay|kai|grove|dynamo' | cut -f1,2,5,6
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+NAME            	NAMESPACE             	STATUS  	CHART                        
+dynamo-platform 	dynamo-system         	deployed	dynamo-platform-1.6.1        
+gpu-operator    	gpu-operator          	deployed	gpu-operator-v26.3.2         
+grove           	dynamo-system         	deployed	grove-charts-v0.1.0-alpha.17 
+kai-scheduler   	kai-scheduler         	deployed	kai-scheduler-v0.17.2        
+kuberay-operator	kuberay               	deployed	kuberay-operator-1.7.1       
+nfd             	node-feature-discovery	deployed	node-feature-discovery-0.18.3

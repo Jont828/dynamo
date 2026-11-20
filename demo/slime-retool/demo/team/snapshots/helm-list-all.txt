@@ -1,0 +1,31 @@
+# screen: helm list -A
+# ran:    helm --kube-context h100 list -A
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+NAME                            	NAMESPACE              	REVISION	UPDATED                                	STATUS  	CHART                                                    	APP VERSION    
+agentgateway                    	agentgateway-system    	1       	2026-07-01 11:01:00.416290007 -0400 EDT	deployed	agentgateway-v2.2.1                                      	v2.2.1         
+agentgateway-crds               	agentgateway-system    	1       	2026-07-01 10:59:16.804743755 -0400 EDT	deployed	agentgateway-crds-v2.2.1                                 	v2.2.1         
+agentgateway-crds-post          	agentgateway-system    	1       	2026-07-01 10:59:28.631295701 -0400 EDT	deployed	agentgateway-crds-post-0.1.0                             	0.1.0          
+agentgateway-post               	agentgateway-system    	1       	2026-07-01 11:01:20.812199324 -0400 EDT	deployed	agentgateway-post-0.1.0                                  	0.1.0          
+aks-managed-overlay-upgrade-data	kube-system            	71176   	2026-11-19 02:44:38.269134724 +0000 UTC	deployed	overlay-upgrade-data-addon-0.1.0-v20261028-addon-261105-1	               
+aks-managed-trustedaccess       	kube-system            	70040   	2026-11-19 02:45:09.141062971 +0000 UTC	deployed	trustedaccess-addon-0.1.0-v20261028-addon-261105-1       	               
+aks-managed-workload-identity   	kube-system            	70311   	2026-11-19 02:45:41.551802991 +0000 UTC	deployed	workload-identity-addon-0.1.0-v20261028-addon-261105-1   	               
+azuresecuritylinuxagent         	kube-system            	10053   	2026-11-19 02:44:19.309694321 +0000 UTC	deployed	azure-security-pack-k8sagents-1.0.035862                 	               
+dynamo-platform                 	dynamo-system          	5       	2026-11-04 17:24:01.154491 -0500 EST   	deployed	dynamo-platform-1.6.1                                    	1.6.1          
+gptoss-ib-workspace             	gptoss-ib-operator     	1       	2026-11-12 01:41:10.416036 -0800 -0800 	deployed	workspace-0.13.0                                         	0.13.0         
+gpu-operator                    	gpu-operator           	1       	2026-07-01 11:09:05.249730473 -0400 EDT	deployed	gpu-operator-v26.3.2                                     	v26.3.2        
+grove                           	dynamo-system          	6       	2026-11-04 17:22:35.798394 -0500 EST   	deployed	grove-charts-v0.1.0-alpha.17                             	v0.1.0-alpha.17
+k8s-ephemeral-storage-metrics   	monitoring             	1       	2026-07-01 11:15:37.380480367 -0400 EDT	deployed	k8s-ephemeral-storage-metrics-1.19.2                     	1.19.2         
+kai-scheduler                   	kai-scheduler          	2       	2026-10-08 20:07:41.936189 -0400 EDT   	deployed	kai-scheduler-v0.17.2                                    	v0.17.2        
+kube-prometheus-stack           	monitoring             	1       	2026-07-01 11:05:58.324679363 -0400 EDT	deployed	kube-prometheus-stack-83.7.0                             	v0.90.1        
+kuberay-operator                	kuberay                	2       	2026-11-04 18:37:59.551626 -0500 EST   	deployed	kuberay-operator-1.7.1                                   	               
+network-operator                	nvidia-network-operator	1       	2026-07-01 11:03:01.608147566 -0400 EDT	deployed	network-operator-26.1.1                                  	v26.1.1        
+network-operator-post           	nvidia-network-operator	1       	2026-07-01 11:04:08.882852679 -0400 EDT	deployed	network-operator-post-0.1.0                              	0.1.0          
+nfd                             	node-feature-discovery 	1       	2026-07-01 11:02:13.265356827 -0400 EDT	deployed	node-feature-discovery-0.18.3                            	v0.18.3        
+nodewright-operator             	skyhook                	1       	2026-07-01 11:04:37.974393013 -0400 EDT	deployed	nodewright-v0.17.1                                       	v0.17.0        
+nvsentinel                      	nvsentinel             	1       	2026-07-01 11:19:47.410374431 -0400 EDT	deployed	nvsentinel-v1.3.0                                        	v1.3.0         
+orka                            	orka-system            	1       	2026-11-04 20:06:38.234767 -0500 EST   	deployed	orka-0.3.0                                               	v0.3.0         
+prometheus-adapter              	monitoring             	1       	2026-07-01 11:23:11.759448684 -0400 EDT	deployed	prometheus-adapter-5.3.0                                 	v0.12.0        
+prometheus-operator-crds        	monitoring             	1       	2026-07-01 11:05:31.406018536 -0400 EDT	deployed	prometheus-operator-crds-28.0.1                          	v0.90.1        
+qwen38-istio-base               	qwen38-istio-system    	2       	2026-11-02 14:55:05.292224 -0800 -0800 	deployed	base-1.28.3                                              	1.28.3         
+qwen38-istiod                   	qwen38-istio-system    	1       	2026-11-02 14:56:24.268144 -0800 -0800 	deployed	istiod-1.28.3                                            	1.28.3         

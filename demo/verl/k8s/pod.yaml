@@ -1,0 +1,102 @@
+# verl + Dynamo GRPO demo: one 8-GPU pod that runs the whole RL loop (Ray, FSDP trainer,
+# Dynamo frontend + KV router, 4 dynamo.vllm engines). demo.sh replaces __NODE__ with a free node.
+#
+#   kubectl -n default create configmap verl-dynamo-demo-scripts --from-file=scripts/ --dry-run=client -o yaml | kubectl apply -f -
+#   sed "s/__NODE__/<node>/" k8s/pod.yaml | kubectl apply -f -
+#   kubectl -n default delete pod verl-dynamo-demo            # frees the 8 GPUs
+apiVersion: v1
+kind: Pod
+metadata:
+  name: verl-dynamo-demo
+  namespace: default
+  labels:
+    app: verl-dynamo-demo
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: __NODE__
+  # Keep Kubernetes service-link variables (FOO_PORT, ...) out of the Dynamo/Ray environment.
+  enableServiceLinks: false
+  # The pause container becomes PID 1 and reaps processes orphaned by finished runs.
+  shareProcessNamespace: true
+  terminationGracePeriodSeconds: 30
+  containers:
+    - name: trainer
+      # Dynamo 1.5.1 ships vLLM 0.28.0, the engine version the verl-recipe dynamo backend is tested on.
+      image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.5.1
+      command: ["bash", "-c"]
+      args:
+        - |
+          if [ ! -s /shared/verl-dynamo-151/env/delta.txt ]; then
+            echo "[bootstrap] no build yet: run bash /opt/verl-dynamo-demo/build-env.sh"
+          elif bash /opt/verl-dynamo-demo/pod-bootstrap.sh; then
+            echo "[bootstrap] ready"
+          else
+            echo "[bootstrap] FAILED: inspect the log above or re-run build-env.sh"
+          fi
+          touch /tmp/verl-dynamo-ready
+          exec sleep infinity
+      readinessProbe:
+        exec:
+          command: ["test", "-f", "/tmp/verl-dynamo-ready"]
+        periodSeconds: 5
+        failureThreshold: 1
+      workingDir: /shared
+      env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: DYN_TCP_RPC_HOST
+          value: $(POD_IP)
+        - name: VERL_DIR
+          value: /shared/verl-dynamo-151/src/verl
+        - name: PYTHONPATH
+          value: /shared/verl-dynamo-151/src/verl:/shared/verl-dynamo-151/kitpy
+        - name: VERL_USE_EXTERNAL_MODULES
+          value: recipe.dynamo.register,verl_dynamo_kitlog
+        - name: VERL_DYNAMO_REFIT_STRICT
+          value: "1"
+        - name: HF_HOME
+          value: /shared/verl-dynamo/hf-home
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token-secret
+              key: HF_TOKEN
+              optional: true
+        - name: RAY_DEDUP_LOGS
+          value: "0"
+        - name: PYTHONFAULTHANDLER
+          value: "1"
+      securityContext:
+        runAsUser: 0
+        capabilities:
+          add: [SYS_PTRACE]
+      resources:
+        requests:
+          cpu: "64"
+          memory: 800Gi
+          nvidia.com/gpu: "8"
+        limits:
+          cpu: "64"
+          memory: 800Gi
+          nvidia.com/gpu: "8"
+      volumeMounts:
+        - name: shared
+          mountPath: /shared
+        - name: dshm
+          mountPath: /dev/shm
+        - name: scripts
+          mountPath: /opt/verl-dynamo-demo
+  volumes:
+    - name: shared
+      persistentVolumeClaim:
+        claimName: pvc-lustre-ray
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 256Gi
+    - name: scripts
+      configMap:
+        name: verl-dynamo-demo-scripts
+        defaultMode: 493

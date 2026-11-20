@@ -1,0 +1,58 @@
+# One-time setup for the ReTool run, like the Slime tutorial's slime-setup Job:
+# download Slime's ReTool SFT checkpoint and DAPO-Math-17k to the shared volume,
+# convert the checkpoint to Megatron's torch_dist format on 1 GPU (with the
+# rotary base that retool_qwen3_4b_rl.sh uses), and create the directories that
+# the run writes to.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: slime-retool-setup
+  namespace: slime-retool
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: setup
+          image: slimerl/slime:nightly-dev-20261027a-cu130
+          command: ["bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              echo "setup start $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              hf download font-info/qwen3-4b-sft-SGLang-RL --local-dir /data/models/qwen3-4b-sft
+              hf download --repo-type dataset zhuzilin/dapo-math-17k --local-dir /data/datasets/dapo-math-17k
+              echo "downloads done $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              cd /root/slime
+              source scripts/models/qwen3-4B.sh
+              PYTHONPATH=/root/Megatron-LM:/root/slime torchrun --standalone --nproc-per-node 1 \
+                tools/convert_hf_to_torch_dist.py "${MODEL_ARGS[@]}" \
+                --rotary-base 5000000 \
+                --hf-checkpoint /data/models/qwen3-4b-sft \
+                --save /data/models/qwen3-4b-sft_torch_dist
+              mkdir -p /data/weight-updates /data/turn-logs
+              ls /data/datasets/dapo-math-17k /data/models
+              du -sh /data/models/qwen3-4b-sft /data/models/qwen3-4b-sft_torch_dist
+              echo "setup end $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+            limits:
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: slime-data
+              mountPath: /data
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: slime-data
+          persistentVolumeClaim:
+            claimName: slime-data
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi

@@ -1,0 +1,75 @@
+# Smoke test: NeMo RL CI's own Dynamo overlay (tests/functional/L1_Functional_Tests_Dynamo.sh, first
+# test), unchanged, as a KubeRay RayJob on 2 GPUs: Qwen/Qwen3-0.6B, 2 GRPO steps, 1 Megatron trainer GPU
+# and 1 vLLM engine, then CI's metric checks and check_dynamo_overlay.sh.
+# Prerequisites: KubeRay operator, `kubectl apply -k .`, and a completed k8s/setup-job.yaml.
+#
+#   kubectl apply -f k8s/rayjob-smoke.yaml
+#   kubectl -n nemo-rl-demo logs -f job/nemo-rl-grpo-smoke --pod-running-timeout=15m
+#   kubectl -n nemo-rl-demo get rayjob nemo-rl-grpo-smoke     # JOB STATUS: SUCCEEDED
+#   kubectl -n nemo-rl-demo delete rayjob nemo-rl-grpo-smoke
+apiVersion: ray.io/v1
+kind: RayJob
+metadata:
+  name: nemo-rl-grpo-smoke
+  namespace: nemo-rl-demo
+spec:
+  entrypoint: bash /opt/nemo-rl-demo/smoke-entrypoint.sh
+  submissionMode: K8sJobMode
+  shutdownAfterJobFinishes: true
+  ttlSecondsAfterFinished: 30
+  activeDeadlineSeconds: 3600
+  backoffLimit: 0
+  submitterPodTemplate:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: aks-ndh100pool-82423760-vmss000000
+      containers:
+        - name: ray-job-submitter
+          # Only runs the `ray` CLI; same Ray as NeMo RL's uv.lock.
+          image: rayproject/ray:2.58.0-py313
+          resources:
+            requests: {cpu: 200m, memory: 512Mi}
+            limits: {cpu: "1", memory: 1Gi}
+  rayClusterSpec:
+    # NeMo RL's uv.lock pins ray 2.58.0. >= 2.53 also makes KubeRay use HTTP health probes.
+    rayVersion: "2.58.0"
+    headGroupSpec:
+      rayStartParams: {}
+      template:
+        spec:
+          enableServiceLinks: false
+          nodeSelector:
+            kubernetes.azure.com/agentpool: ndh100pool
+            # Where k8s/setup-job.yaml pulled the image.
+            kubernetes.io/hostname: aks-ndh100pool-82423760-vmss000000
+          containers:
+            - name: ray-head
+              # PATH starts with /opt/nemo_rl_venv/bin, so KubeRay's `ray start` runs NeMo RL's own Ray.
+              image: docker.io/jont828/nemo-rl:main-d51b2842-dynamo
+              workingDir: /opt/nemo-rl
+              env:
+                - {name: HF_HOME, value: /cache/hf-home}
+                - {name: RUNS_DIR, value: /cache/runs}
+                - {name: VLLM_CACHE_ROOT, value: /cache/vllm-cache}
+                - {name: PYTHONUNBUFFERED, value: "1"}
+                # Keep both engines' lines in the log instead of "[repeated 2x across cluster]".
+                - {name: RAY_DEDUP_LOGS, value: "0"}
+                - name: HF_TOKEN
+                  valueFrom:
+                    secretKeyRef: {name: hf-token-secret, key: HF_TOKEN, optional: true}
+              resources:
+                requests: {cpu: "24", memory: 256Gi, nvidia.com/gpu: "2"}
+                limits: {cpu: "24", memory: 256Gi, nvidia.com/gpu: "2"}
+              volumeMounts:
+                - {name: cache, mountPath: /cache}
+                - {name: scripts, mountPath: /opt/nemo-rl-demo}
+                - {name: dshm, mountPath: /dev/shm}
+          volumes:
+            - name: cache
+              persistentVolumeClaim: {claimName: nemo-rl-dynamo-cache}
+            - name: scripts
+              configMap: {name: nemo-rl-dynamo-demo-scripts, defaultMode: 493}
+            - name: dshm
+              emptyDir: {medium: Memory, sizeLimit: 128Gi}
+    workerGroupSpecs: []

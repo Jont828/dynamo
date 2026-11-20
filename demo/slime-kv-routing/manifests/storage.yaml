@@ -1,0 +1,49 @@
+# Storage for the KV-routing comparison on the h100 AKS cluster.
+#
+# Same shape as slime-e2e-test-run/storage.yaml: h100 has no dynamic
+# ReadWriteMany Lustre class, so a static PV on a fresh Azure Managed Lustre
+# sub-directory (slime-kv/) backs the tutorial's claim name, slime-data. The
+# tutorial's manifests then apply unchanged. The CSI driver creates the sub-dir
+# on first mount. Reclaim policy Retain: deleting the PV leaves the files.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: slime-kv
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-lustre-slime-kv
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: azurelustre-static
+  mountOptions:
+    - noatime
+    - flock
+  csi:
+    driver: azurelustre.csi.azure.com
+    volumeHandle: pv-lustre-slime-kv#lustrefs#10.225.0.10#slime-kv#f#
+    volumeAttributes:
+      mgs-ip-address: 10.225.0.10
+      sub-dir: slime-kv
+  claimRef:
+    namespace: slime-kv
+    name: slime-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: slime-data
+  namespace: slime-kv
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: azurelustre-static
+  volumeName: pv-lustre-slime-kv
+  resources:
+    requests:
+      storage: 1Ti

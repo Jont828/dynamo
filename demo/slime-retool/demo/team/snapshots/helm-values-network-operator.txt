@@ -1,0 +1,21 @@
+# screen: helm get values network-operator -n nvidia-network-operator
+# ran:    helm --kube-context h100 get values network-operator -n nvidia-network-operator
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+USER-SUPPLIED VALUES:
+deployCR: true
+nfd:
+  deployNodeFeatureRules: false
+  enabled: false
+nicClusterPolicy:
+  enabled: true
+nvIpam:
+  enabled: true
+operator:
+  fullnameOverride: network-operator
+  tolerations:
+  - operator: Exists
+secondaryNetwork:
+  deploy: true
+sriovNetworkOperator:
+  enabled: false

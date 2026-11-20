@@ -1,0 +1,12 @@
+# screen: (not shown) the setup Job and its Pod: timestamps and exit code
+# ran:    kubectl --context h100 -n slime-kv get job slime-setup -o jsonpath='job.batch/{.metadata.name} created={.metadata.creationTimestamp} start={.status.startTime} completion={.status.completionTime} succeeded={.status.succeeded}{"\n"}'; kubectl --context h100 -n slime-kv get pods -l job-name=slime-setup -o jsonpath='{range .items[*]}pod/{.metadata.name} created={.metadata.creationTimestamp} node={.spec.nodeName}{"\n"}{range .status.conditions[*]}  {.type}={.lastTransitionTime}{"\n"}{end}{range .status.containerStatuses[*]}  container {.name} image={.image} started={.state.terminated.startedAt} finished={.state.terminated.finishedAt} exit={.state.terminated.exitCode} reason={.state.terminated.reason}{"\n"}{end}{end}'
+# date:   2026-11-19T07:57:03Z (UTC), read-only
+# ---
+job.batch/slime-setup created=2026-11-14T03:13:23Z start=2026-11-14T03:13:23Z completion=2026-11-14T03:14:30Z succeeded=1
+pod/slime-setup-j22n6 created=2026-11-14T03:13:23Z node=aks-ndh100pool-82423760-vmss000003
+  PodReadyToStartContainers=2026-11-14T03:14:29Z
+  Initialized=2026-11-14T03:13:23Z
+  Ready=2026-11-14T03:14:28Z
+  ContainersReady=2026-11-14T03:14:28Z
+  PodScheduled=2026-11-14T03:13:23Z
+  container setup image=docker.io/slimerl/slime:nightly-dev-20261027a-cu130 started=2026-11-14T03:13:25Z finished=2026-11-14T03:14:28Z exit=0 reason=Completed

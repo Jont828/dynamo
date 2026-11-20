@@ -1,0 +1,7 @@
+# screen: (not shown) the Lustre StorageClass's parameters and the file system's MGS address
+# ran:    kubectl --context h100 get storageclass azurelustre-static -o jsonpath='storageclass/{.metadata.name} created={.metadata.creationTimestamp} provisioner={.provisioner} parameters={.parameters}{"\n"}'; echo "amlfs/h100-lustre $(az resource show --subscription "$SUB" -g h100 -n h100-lustre --resource-type Microsoft.StorageCache/amlFilesystems --query '[systemData.createdAt, properties.clientInfo.mgsAddress]' -o tsv | tr '\t\n' '  ' | awk '{print "created=" $1 " mgsAddress=" $2}')"; echo "amlFilesystems in the resource group: $(az resource list --subscription "$SUB" -g h100 --resource-type Microsoft.StorageCache/amlFilesystems --query '[].name' -o tsv | tr '\n' ' ')"
+# date:   2026-11-19T07:57:03Z (UTC), read-only
+# ---
+storageclass/azurelustre-static created=2026-07-01T02:28:16Z provisioner=azurelustre.csi.azure.com parameters={"mgs-ip-address":"10.225.0.6"}
+amlfs/h100-lustre created=2026-07-10T16:44:37.5752499Z mgsAddress=10.225.0.10
+amlFilesystems in the resource group: h100-lustre 

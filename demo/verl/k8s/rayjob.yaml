@@ -1,0 +1,95 @@
+# GRPO training of Qwen2.5-7B-Instruct on GSM8K with verl, rollouts served by Dynamo, as a KubeRay RayJob.
+# Prerequisites: KubeRay operator, `kubectl apply -k .`, and a completed k8s/setup-job.yaml.
+#
+#   kubectl apply -f k8s/rayjob.yaml
+#   kubectl wait --for=jsonpath='{.status.jobDeploymentStatus}'=Running rayjob/verl-grpo-demo --timeout=15m
+#   kubectl logs -f job/verl-grpo-demo                    # live training view, then the results
+#   kubectl get rayjob verl-grpo-demo                     # JOB STATUS, DEPLOYMENT STATUS
+#   kubectl delete rayjob verl-grpo-demo                  # before submitting the next run
+#
+# KubeRay creates a one-node Ray cluster (the head holds all 8 GPUs), waits until it is healthy, then a
+# small submitter Job runs `ray job submit -- <entrypoint>` and follows the driver's output. When the
+# job ends, KubeRay deletes the cluster, which frees the GPUs and every Dynamo/vLLM process with it.
+apiVersion: ray.io/v1
+kind: RayJob
+metadata:
+  name: verl-grpo-demo
+  namespace: default
+spec:
+  # verl's normal entrypoint (python3 -m verl.trainer.main_ppo) is inside run-demo-train.sh; this wrapper
+  # adds the live view and the report. Change STEPS / TEST_FREQ here.
+  entrypoint: STEPS=15 TEST_FREQ=5 bash /opt/verl-dynamo-demo/rayjob-entrypoint.sh
+  submissionMode: K8sJobMode
+  shutdownAfterJobFinishes: true
+  ttlSecondsAfterFinished: 30
+  # Hard cap for the whole run, startup included: KubeRay stops the job and deletes the cluster.
+  activeDeadlineSeconds: 3600
+  backoffLimit: 0
+  submitterPodTemplate:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ray-job-submitter
+          # Only runs the `ray` CLI. Keep it at the Ray version the setup Job installed (it prints it).
+          image: rayproject/ray:2.60.0-py312
+          resources:
+            requests: {cpu: 200m, memory: 512Mi}
+            limits: {cpu: "1", memory: 1Gi}
+  rayClusterSpec:
+    # >= 2.53 makes KubeRay use HTTP health probes (the vLLM image has no wget).
+    rayVersion: "2.60.0"
+    headGroupSpec:
+      rayStartParams: {}
+      template:
+        spec:
+          enableServiceLinks: false
+          nodeSelector:
+            kubernetes.azure.com/agentpool: ndh100pool
+          containers:
+            - name: ray-head
+              image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.5.1
+              # Runs before the `ray start` KubeRay generates: installs Ray 2.60, verl and the other added
+              # packages from the cache's wheelhouse (~1 min). The Dynamo vLLM image ships without Ray.
+              command: ["bash", "/opt/verl-dynamo-demo/pod-bootstrap.sh"]
+              workingDir: /cache
+              env:
+                - {name: SHARED_ROOT, value: /cache}
+                - {name: VERL_DIR, value: /cache/src/verl}
+                - {name: RUNS_DIR, value: /cache/runs}
+                - {name: MODELS_DIR, value: /cache/models}
+                - {name: DATA_DIR, value: /cache/data}
+                - {name: OLD_WHEELHOUSE, value: /cache/none}
+                - {name: HF_HOME, value: /cache/hf-home}
+                - {name: PYTHONPATH, value: /cache/src/verl:/cache/kitpy}
+                - {name: VERL_USE_EXTERNAL_MODULES, value: "recipe.dynamo.register,verl_dynamo_kitlog"}
+                - {name: VERL_DYNAMO_REFIT_STRICT, value: "1"}
+                - {name: RAY_DEDUP_LOGS, value: "0"}
+                - {name: PYTHONUNBUFFERED, value: "1"}
+                - {name: PYTHONFAULTHANDLER, value: "1"}
+                - name: POD_IP
+                  valueFrom:
+                    fieldRef: {fieldPath: status.podIP}
+                # Dynamo's request plane binds to the pod IP.
+                - {name: DYN_TCP_RPC_HOST, value: $(POD_IP)}
+                - name: HF_TOKEN
+                  valueFrom:
+                    secretKeyRef: {name: hf-token-secret, key: HF_TOKEN, optional: true}
+              securityContext:
+                runAsUser: 0
+              resources:
+                requests: {cpu: "64", memory: 800Gi, nvidia.com/gpu: "8"}
+                limits: {cpu: "64", memory: 800Gi, nvidia.com/gpu: "8"}
+              volumeMounts:
+                - {name: cache, mountPath: /cache}
+                - {name: scripts, mountPath: /opt/verl-dynamo-demo}
+                - {name: dshm, mountPath: /dev/shm}
+          volumes:
+            - name: cache
+              persistentVolumeClaim: {claimName: verl-dynamo-cache}
+            - name: scripts
+              configMap: {name: verl-dynamo-demo-scripts, defaultMode: 493}
+            - name: dshm
+              emptyDir: {medium: Memory, sizeLimit: 256Gi}
+    # One node is enough for 7B. For more rollout throughput, add a worker group with the same pod
+    # template (and an RWX cache) and raise trainer.nnodes.
+    workerGroupSpecs: []

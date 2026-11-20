@@ -1,0 +1,7 @@
+# screen: (not shown) the namespace, PV, and PVC from manifests/storage.yaml
+# ran:    kubectl --context h100 get ns slime-kv -o jsonpath='namespace/{.metadata.name} created={.metadata.creationTimestamp}{"\n"}'; kubectl --context h100 get pv pv-lustre-slime-kv -o jsonpath='persistentvolume/{.metadata.name} created={.metadata.creationTimestamp} phase={.status.phase} claim={.spec.claimRef.namespace}/{.spec.claimRef.name} reclaim={.spec.persistentVolumeReclaimPolicy} class={.spec.storageClassName} access={.spec.accessModes} capacity={.spec.capacity.storage}{"\n"}'; kubectl --context h100 -n slime-kv get pvc slime-data -o jsonpath='persistentvolumeclaim/{.metadata.name} created={.metadata.creationTimestamp} phase={.status.phase} volume={.spec.volumeName} capacity={.status.capacity.storage}{"\n"}'
+# date:   2026-11-19T07:57:03Z (UTC), read-only
+# ---
+namespace/slime-kv created=2026-11-14T03:13:12Z
+persistentvolume/pv-lustre-slime-kv created=2026-11-14T03:13:12Z phase=Bound claim=slime-kv/slime-data reclaim=Retain class=azurelustre-static access=["ReadWriteMany"] capacity=1Ti
+persistentvolumeclaim/slime-data created=2026-11-14T03:13:13Z phase=Bound volume=pv-lustre-slime-kv capacity=1Ti

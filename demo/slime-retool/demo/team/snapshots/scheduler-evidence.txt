@@ -1,0 +1,13 @@
+# screen: which scheduler placed the run's Pods (from the kit's saved Pod JSON)
+# ran:    python3 -I -c "import json; d=json.load(open('../../../runs/run1/pods-at-end.json')); [print(i['metadata']['name'], i['spec'].get('schedulerName'), i['metadata'].get('labels', {}).get('kai.scheduler/queue', '-'), i['metadata'].get('labels', {}).get('grove.io/podgang', '-')) for i in d['items']]"
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+slime-inspect default-scheduler - -
+slime-retool-h4z4h-head-fwcws default-scheduler - -
+slime-retool-setup-576r7 default-scheduler - -
+slime-retool-sgkxz default-scheduler - -
+slime-sglang-0-frontend-cwzgh kai-scheduler dynamo slime-sglang-0-1795041333298290413
+slime-sglang-0-worker-0-qnggq kai-scheduler dynamo slime-sglang-0-1795041333298290413
+slime-sglang-0-worker-1-vwd6q kai-scheduler dynamo slime-sglang-0-1795041333298290413
+slime-sglang-0-worker-2-d52gk kai-scheduler dynamo slime-sglang-0-1795041333298290413
+slime-sglang-0-worker-3-xqkd8 kai-scheduler dynamo slime-sglang-0-1795041333298290413

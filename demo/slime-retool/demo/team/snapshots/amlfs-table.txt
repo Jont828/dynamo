@@ -1,0 +1,7 @@
+# screen: az resource show -g $RESOURCE_GROUP -n $AMLFS_NAME --resource-type Microsoft.StorageCache/amlFilesystems --query "{SKU:sku.name, TiB:properties.storageCapacityTiB, MBps:properties.throughputProvisionedMBps}" -o table
+# ran:    az resource show --subscription "$SUB" -g h100 -n h100-lustre --resource-type Microsoft.StorageCache/amlFilesystems --query "{SKU:sku.name, TiB:properties.storageCapacityTiB, MBps:properties.throughputProvisionedMBps}" -o table
+# date:   2026-11-19T02:45:34Z (UTC), read-only
+# ---
+SKU                        TiB    MBps
+-------------------------  -----  ------
+AMLFS-Durable-Premium-500  16.0   8000

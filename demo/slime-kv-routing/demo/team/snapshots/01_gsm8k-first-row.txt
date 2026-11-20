@@ -1,0 +1,68 @@
+# screen: (not shown) the column names and first row of zhuzilin/gsm8k (train), from the Hugging Face dataset viewer API
+# ran:    curl -sS 'https://datasets-server.huggingface.co/first-rows?dataset=zhuzilin/gsm8k&config=default&split=train' | python3 -c '<keep features and rows[0]>'
+# date:   2026-11-19T07:52:15Z (UTC), read-only
+# ---
+{
+ "features": [
+  {
+   "feature_idx": 0,
+   "name": "question",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 1,
+   "name": "answer",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 2,
+   "name": "label",
+   "type": {
+    "dtype": "string",
+    "_type": "Value"
+   }
+  },
+  {
+   "feature_idx": 3,
+   "name": "messages",
+   "type": {
+    "feature": {
+     "content": {
+      "dtype": "string",
+      "_type": "Value"
+     },
+     "role": {
+      "dtype": "string",
+      "_type": "Value"
+     }
+    },
+    "_type": "List"
+   }
+  }
+ ],
+ "rows[0]": {
+  "row_idx": 0,
+  "row": {
+   "question": "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?",
+   "answer": "Natalia sold 48/2 = <<48/2=24>>24 clips in May.\nNatalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May.\n#### 72",
+   "label": "72",
+   "messages": [
+    {
+     "content": "You are a helpful assistant. Please put the answer within \\boxed{}.",
+     "role": "system"
+    },
+    {
+     "content": "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?",
+     "role": "user"
+    }
+   ]
+  },
+  "truncated_cells": []
+ }
+}

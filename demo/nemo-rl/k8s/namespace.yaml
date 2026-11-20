@@ -1,0 +1,6 @@
+# The demo's namespace. Everything the kit creates lives here, so `kubectl delete -k .` (or deleting the
+# namespace) removes all of it, cache disk included.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nemo-rl-demo

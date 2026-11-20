@@ -1,0 +1,57 @@
+# One-time setup: fills the verl-dynamo-cache volume (scripts/setup-cache.sh). ~30 min the first time,
+# mostly compiling flash-attn; a re-run skips finished steps. Prerequisite: kubectl apply -k .
+#
+#   kubectl apply -f k8s/setup-job.yaml
+#   kubectl logs -f job/verl-dynamo-setup
+#   kubectl wait --for=condition=complete job/verl-dynamo-setup --timeout=90m
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: verl-dynamo-setup
+  namespace: default
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 5400
+  template:
+    metadata:
+      labels:
+        app: verl-dynamo-setup
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.azure.com/agentpool: ndh100pool
+      containers:
+        - name: setup
+          image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.5.1
+          command: ["bash", "/opt/verl-dynamo-demo/setup-cache.sh"]
+          workingDir: /cache
+          env:
+            - {name: SHARED_ROOT, value: /cache}
+            - {name: VERL_DIR, value: /cache/src/verl}
+            - {name: RUNS_DIR, value: /cache/runs}
+            - {name: MODELS_DIR, value: /cache/models}
+            - {name: DATA_DIR, value: /cache/data}
+            - {name: OLD_WHEELHOUSE, value: /cache/none}
+            - {name: HF_HOME, value: /cache/hf-home}
+            - {name: PYTHONPATH, value: /cache/src/verl:/cache/kitpy}
+            - {name: PYTHONUNBUFFERED, value: "1"}
+            # Parallel nvcc jobs for the flash-attn build (each can take several GB of memory).
+            - {name: MAX_JOBS, value: "32"}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef: {name: hf-token-secret, key: HF_TOKEN, optional: true}
+          securityContext:
+            runAsUser: 0
+          resources:
+            # One GPU only so build-env.sh's import checks see a driver; the rest is CPU for nvcc.
+            requests: {cpu: "48", memory: 384Gi, nvidia.com/gpu: "1"}
+            limits: {cpu: "48", memory: 384Gi, nvidia.com/gpu: "1"}
+          volumeMounts:
+            - {name: cache, mountPath: /cache}
+            - {name: scripts, mountPath: /opt/verl-dynamo-demo}
+      volumes:
+        - name: cache
+          persistentVolumeClaim: {claimName: verl-dynamo-cache}
+        - name: scripts
+          configMap: {name: verl-dynamo-demo-scripts, defaultMode: 493}

@@ -1,0 +1,49 @@
+# Storage for the ReTool + KV-aware routing run on the h100 AKS cluster.
+#
+# Same shape as ../slime-kv-routing/manifests/storage.yaml: h100 has no
+# dynamic ReadWriteMany Lustre class, so a static PV on a fresh Azure Managed
+# Lustre sub-directory (slime-retool/) backs the claim slime-data. The CSI
+# driver creates the sub-dir on first mount. Reclaim policy Retain: deleting
+# the PV leaves the files on Lustre.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: slime-retool
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-lustre-slime-retool
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: azurelustre-static
+  mountOptions:
+    - noatime
+    - flock
+  csi:
+    driver: azurelustre.csi.azure.com
+    volumeHandle: pv-lustre-slime-retool#lustrefs#10.225.0.10#slime-retool#f#
+    volumeAttributes:
+      mgs-ip-address: 10.225.0.10
+      sub-dir: slime-retool
+  claimRef:
+    namespace: slime-retool
+    name: slime-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: slime-data
+  namespace: slime-retool
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: azurelustre-static
+  volumeName: pv-lustre-slime-retool
+  resources:
+    requests:
+      storage: 1Ti
